@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+lib/generated/
+.env
+.env.*
+!.env.example
+*.log
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+.tick-header

@@ -1,0 +1,61 @@
+# busfactor with Docker Compose.
+#   1. Create .env (sudo bash install.sh --docker does this for you, or copy .env.example)
+#   2. docker compose up -d --build                     (app on 127.0.0.1:3000, behind your own web server)
+#      docker compose --profile https up -d --build     (adds Caddy with automatic HTTPS for $DOMAIN)
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    command: ["--max-allowed-packet=64M"] # room for personal messages with attachments
+    environment:
+      MARIADB_DATABASE: busfactor
+      MARIADB_USER: busfactor
+      MARIADB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build: .
+    image: busfactor:local
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: mysql://busfactor:${DB_PASSWORD}@db:3306/busfactor
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${PORT:-3000}:3000"
+
+  scheduler:
+    image: busfactor:local
+    restart: unless-stopped
+    entrypoint: ["node", "/app/docker/scheduler.mjs"]
+    environment:
+      CRON_SECRET: ${CRON_SECRET:?Set CRON_SECRET in .env}
+      TICK_URL: http://app:3000/api/cron/tick
+    depends_on:
+      - app
+
+  caddy:
+    image: caddy:2
+    profiles: ["https"]
+    restart: unless-stopped
+    command: caddy reverse-proxy --from ${DOMAIN:?Set DOMAIN in .env} --to app:3000 --header-up X-Forwarded-For={remote_host}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy:/data
+    depends_on:
+      - app
+
+volumes:
+  db:
+  caddy:

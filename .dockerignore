@@ -1,0 +1,9 @@
+node_modules
+.next
+lib/generated
+.env
+.env.*
+!.env.example
+.git
+*.log
+.tick-header

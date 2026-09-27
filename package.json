@@ -1,0 +1,53 @@
+{
+  "name": "busfactor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A dead man's switch for solo developers: check in regularly, or your trusted people get your handover instructions.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "postinstall": "prisma generate",
+    "db:push": "prisma db push",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "engines": {
+    "node": ">=20.9"
+  },
+  "dependencies": {
+    "@prisma/adapter-mariadb": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "@simplewebauthn/browser": "^14.0.0",
+    "@simplewebauthn/server": "^14.0.3",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.4.2",
+    "hash-wasm": "^4.12.0",
+    "ipaddr.js": "^2.5.0",
+    "next": "^16.3.6",
+    "nodemailer": "^10.0.11",
+    "qrcode": "^1.5.4",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@prisma/prisma-schema-wasm": "^7.10.0-4.0edf323efd1d98336f3f0a68684b56f689b900d3",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.20.4",
+    "@types/nodemailer": "^8.0.2",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "prisma": "^7.10.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "mariadb": "^3.5.4",
+    "mysql2": "^3.24.4",
+    "deepmerge-ts": "^8.0.2"
+  }
+}

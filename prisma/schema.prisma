@@ -1,0 +1,249 @@
+// busfactor database schema (MariaDB / MySQL).
+// Apply with: npm run db:push
+//
+// Privacy by design: names and email addresses are stored encrypted (AES-256-GCM, "*Enc" columns)
+// and looked up by a keyed fingerprint ("emailHash", HMAC-SHA256). Handover content is encrypted in
+// the browser. A copy of this database without APP_ENCRYPTION_KEY reveals no personal details.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id              String    @id @default(cuid())
+  emailHash       String    @unique
+  emailEnc        String    @db.Text
+  nameEnc         String    @db.Text
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  totpSecretEnc   String?   @db.Text
+  totpEnabledAt   DateTime?
+  totpLastCounter Int? // last accepted TOTP time-step, so a code cannot be used twice
+  emailOtpEnabled Boolean   @default(false)
+  recoveryCodes   String?   @db.Text // JSON array of SHA-256 hashes; used ones removed
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  sessions   Session[]
+  authTokens AuthToken[]
+  challenges AuthChallenge[]
+  passkeys   Passkey[]
+  apiTokens  ApiToken[]
+  switch     Switch?
+  nominees   Nominee[]
+  messages   Message[]
+  events     Event[]
+  tokens     ResponseToken[]
+
+  @@map("users")
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  userId     String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  reauthAt   DateTime? // password re-entered: sensitive changes allowed for 15 minutes
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// Single-use links: email verification, password reset, one-click check-in.
+model AuthToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  purpose   String // VERIFY | RESET | CHECKIN
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_tokens")
+}
+
+/// Short-lived state: a half-finished login waiting for its second factor, or a passkey registration.
+model AuthChallenge {
+  id            String    @id @default(cuid())
+  tokenHash     String    @unique
+  userId        String
+  purpose       String // LOGIN_2FA | PASSKEY_REGISTER
+  challenge     String?   @db.Text // WebAuthn challenge
+  emailCodeHash String?
+  emailCodeAt   DateTime?
+  attempts      Int       @default(0)
+  forceEmail    Boolean   @default(false) // account under attack: an emailed code is required even without 2FA
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_challenges")
+}
+
+model Passkey {
+  id           String    @id @default(cuid())
+  userId       String
+  credentialId String    @unique @db.VarChar(512)
+  publicKey    String    @db.Text // base64url COSE key
+  counter      Int       @default(0)
+  transports   String?
+  name         String    @db.VarChar(100)
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("passkeys")
+}
+
+/// Personal check-in tokens for the API / CLI. Only the hash is stored.
+model ApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String    @db.VarChar(100)
+  tokenHash  String    @unique
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("api_tokens")
+}
+
+/// Failed/attempted logins and sensitive actions, for rate limiting.
+model RateLimitHit {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+  @@map("rate_limit_hits")
+}
+
+/// Instance-wide state, e.g. when the scheduler last ran.
+model SystemState {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+
+  @@map("system_state")
+}
+
+/// One switch per user: timers, current stage, and the general handover instructions.
+model Switch {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  enabled               Boolean   @default(false)
+  reminder1AfterDays    Int       @default(14)
+  reminder2AfterDays    Int       @default(19)
+  nomineeAlertAfterDays Int       @default(20)
+  requiredConfirmations Int       @default(2)
+  nomineeReminderHours  Int       @default(72)
+  nomineeFinalHours     Int       @default(24)
+  holdHours             Int       @default(48)
+  pausedUntil           DateTime?
+  lastCheckinAt         DateTime?
+  stage                 String    @default("ACTIVE") // ACTIVE | REMINDER_1 | REMINDER_2 | NOMINEES_ALERTED | HOLD | HANDOVER_SENT
+  stageChangedAt        DateTime  @default(now())
+  alertCycleId          String?
+  nomineeReminderSentAt DateTime?
+  holdEndsAt            DateTime?
+  holdReason            String? // CONFIRMED | ONE_CONFIRMED_NO_REPLY | NO_REPLIES
+  instructionsMode      String    @default("NONE") // NONE | SERVER | SEALED
+  instructions          String?   @db.MediumText // SERVER: AES-256-GCM with APP_ENCRYPTION_KEY. SEALED: browser-encrypted JSON.
+  sealedHint            String?   @db.Text // encrypted
+  alertChannels         String?   @db.Text // encrypted JSON: [{ id, label, url }]
+  channelSecret         String?   @db.Text // encrypted HMAC secret for signing webhook calls
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([enabled, stage])
+  @@map("switches")
+}
+
+model Nominee {
+  id              String    @id @default(cuid())
+  userId          String
+  nameEnc         String    @db.Text
+  emailEnc        String    @db.Text
+  emailHash       String
+  role            String // CONFIRMER | TRUSTED
+  status          String    @default("PENDING") // PENDING | ACCEPTED | DECLINED
+  inviteTokenHash String?   @unique
+  invitedAt       DateTime?
+  acceptedAt      DateTime?
+  publicKey       String?   @db.Text // trusted person's ECDH P-256 public key (JWK)
+  encPrivateKey   String?   @db.Text // their private key, sealed in their browser with their own passphrase
+  keyHintEnc      String?   @db.Text
+  keyCreatedAt    DateTime?
+  createdAt       DateTime  @default(now())
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokens          ResponseToken[]
+  message         Message?
+
+  @@unique([userId, emailHash, role])
+  @@index([userId])
+  @@map("nominees")
+}
+
+/// A personal message (plus attachments) for one trusted person, encrypted in the owner's
+/// browser to that person's public key. Only they can open it, with their own passphrase.
+model Message {
+  id        String   @id @default(cuid())
+  userId    String
+  nomineeId String   @unique
+  box       String   @db.LongText
+  sizeBytes Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nominee   Nominee  @relation(fields: [nomineeId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("messages")
+}
+
+/// Personal links sent to nominees: "is X OK?" answers, and the handover link.
+model ResponseToken {
+  id          String    @id @default(cuid())
+  tokenHash   String    @unique
+  userId      String
+  nomineeId   String
+  cycleId     String
+  kind        String // RESPOND | HANDOVER
+  expiresAt   DateTime
+  response    String? // OK | NOT_OK (RESPOND) ; VIEWED (HANDOVER)
+  respondedAt DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nominee     Nominee   @relation(fields: [nomineeId], references: [id], onDelete: Cascade)
+
+  @@index([userId, cycleId])
+  @@index([nomineeId])
+  @@map("response_tokens")
+}
+
+model Event {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  detailEnc String?  @db.Text // encrypted: may contain contact names
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("events")
+}

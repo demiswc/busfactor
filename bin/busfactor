@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# busfactor command-line check-in.
+#
+#   busfactor checkin        tell busfactor you're OK
+#   busfactor setup          save your site address and token to ~/.config/busfactor
+#
+# Create a token in Settings -> "Check in from the terminal".
+# Please run this yourself. Do not put it in cron or CI: a machine keeps checking in after you are gone.
+set -euo pipefail
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}/busfactor"
+
+case "${1:-checkin}" in
+  setup)
+    mkdir -p "$(dirname "$CONF")"
+    read -r -p "Site address [https://busfactor.co.uk]: " url
+    read -r -s -p "Check-in token (bf_...): " token; echo
+    umask 077
+    printf 'BUSFACTOR_URL=%s\nBUSFACTOR_TOKEN=%s\n' "${url:-https://busfactor.co.uk}" "$token" > "$CONF"
+    echo "Saved to $CONF"
+    ;;
+  checkin)
+    if [ -z "${BUSFACTOR_TOKEN:-}" ] && [ -f "$CONF" ]; then
+      BUSFACTOR_URL=$(grep '^BUSFACTOR_URL=' "$CONF" | cut -d= -f2-)
+      BUSFACTOR_TOKEN=$(grep '^BUSFACTOR_TOKEN=' "$CONF" | cut -d= -f2-)
+    fi
+    [ -n "${BUSFACTOR_TOKEN:-}" ] || { echo "No token. Run: busfactor setup" >&2; exit 1; }
+    if [ ! -t 0 ]; then echo "Refusing to run without a terminal: check-ins must be done by a person." >&2; exit 1; fi
+    out=$(curl -fsS -X POST -H "Authorization: Bearer $BUSFACTOR_TOKEN" "${BUSFACTOR_URL:-https://busfactor.co.uk}/api/v1/checkin") \
+      && echo "✓ Checked in. See you next time." || { echo "Check-in failed: $out" >&2; exit 1; }
+    ;;
+  *) sed -n '2,9p' "$0"; exit 1 ;;
+esac
