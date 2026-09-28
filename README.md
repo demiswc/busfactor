@@ -1,3 +1,5 @@
+<p align="center"><img src="public/logo-full-white.png" alt="busfactor: keep your business in good hands" width="320"></p>
+
 # busfactor
 
 **A dead man's switch for solo developers, and anyone who holds the keys.**
@@ -8,7 +10,7 @@ It was built for developers, but it works for anyone who is the only one who kno
 
 busfactor fixes that, gently:
 
-1. **You check in** every few weeks: press *I'm OK* on the dashboard, tap the button in the reminder email, or run `busfactor checkin` in your terminal. Miss it and you get two reminders by email, plus ntfy, Discord, Slack, Telegram or a webhook if you add them.
+1. **You check in** every few weeks: tap the reminder on your phone (no app needed), press *I'm OK* on the dashboard or in the reminder email, or run `busfactor checkin` in your terminal. Miss it and you get two reminders, on your phone and by email, plus ntfy, Discord, Slack, Telegram or a webhook if you add them.
 2. **Your people are asked.** Still nothing? The people you chose get an email: *"Is Alex OK?"* with two buttons.
 3. **It waits, carefully.** Silent contacts get a reminder. Two *not OK* answers, or one plus silence, or no answer at all, start a safety wait you can cancel with one click.
 4. **The right person takes over.** Your trusted person gets a private link to your handover instructions and a personal message, with files if you like, that **only they can open, with a passphrase only they know**.

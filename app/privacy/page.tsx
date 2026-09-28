@@ -1,4 +1,7 @@
+import type { Metadata } from 'next'
 import { Card, H1, Notice } from '@/components/ui'
+
+export const metadata: Metadata = { title: 'Privacy', alternates: { canonical: '/privacy' } }
 
 export default function Privacy() {
   const operator = process.env.OPERATOR_NAME || 'the operator of this site'

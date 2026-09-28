@@ -1,4 +1,7 @@
+import type { Metadata } from 'next'
 import { Card, H1, Notice } from '@/components/ui'
+
+export const metadata: Metadata = { title: 'Terms', alternates: { canonical: '/terms' } }
 
 export default function Terms() {
   return (

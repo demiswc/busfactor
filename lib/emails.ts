@@ -2,7 +2,7 @@
  * Email templates. Plain English: many recipients are family members, not developers.
  * Every value that came from a user is HTML-escaped.
  */
-import { APP_NAME } from './config'
+import { APP_NAME, appUrl } from './config'
 import type { HoldReason } from './engine/stages'
 
 export const esc = (s: string) =>
@@ -18,6 +18,10 @@ const RED = '#dc2626', INK = '#111827', GREEN = '#059669', BLUE = '#2563eb'
 
 function wrap(title: string, body: string, accent = BLUE) {
   return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;color:#1f2937;line-height:1.6">
+  <div style="padding:16px 8px 12px 8px">
+    <img src="${appUrl()}/logo-mark-96.png" width="32" height="32" alt="" style="vertical-align:middle;border:0">
+    <span style="vertical-align:middle;font-size:20px;font-weight:bold;margin-left:6px"><span style="color:#0f1d2b">bus</span><span style="color:#0e8a7d">factor</span></span>
+  </div>
   <div style="border-top:6px solid ${accent};padding:24px 8px">
     <h2 style="margin:0 0 16px 0;color:${accent}">${title}</h2>
     ${body}

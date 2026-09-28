@@ -1,6 +1,10 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
+import { appUrl } from '@/lib/config'
+
+export const metadata: Metadata = { alternates: { canonical: '/' } }
 
 const steps = [
   { t: 'You check in', d: 'Every few weeks you log in and press "I\'m OK". Miss it and we remind you, twice.' },
@@ -31,9 +35,26 @@ const faqs = [
 
 export default async function Home() {
   if (await getCurrentUser().catch(() => null)) redirect('/dashboard')
+  const url = appUrl()
+  // Structured data for search engines: what busfactor is, and the questions below.
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebApplication', '@id': `${url}/#app`, name: 'busfactor', url, applicationCategory: 'SecurityApplication', operatingSystem: 'Any (web browser)',
+        description: "A dead man's switch for solo developers and anyone who holds the keys: check in every few weeks, and if you go quiet the people you trust are asked if you're OK and your handover reaches the right person.",
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'GBP' }, isAccessibleForFree: true, license: 'https://opensource.org/licenses/MIT',
+        image: `${url}/opengraph-image.png`,
+      },
+      { '@type': 'WebSite', '@id': `${url}/#site`, name: 'busfactor', url },
+      { '@type': 'FAQPage', mainEntity: faqs.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) },
+    ],
+  }
   return (
     <div className="space-y-20">
-      <section className="max-w-3xl pt-6">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
+      <section className="grid items-center gap-10 pt-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="max-w-3xl">
         <p className="mb-4 text-sm font-medium uppercase tracking-widest text-brand">For solo developers, and anyone who holds the keys</p>
         <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
           You&apos;re the only one with the keys. What happens if you go quiet?
@@ -48,6 +69,8 @@ export default async function Home() {
           <Link href="/signup" className="rounded-lg bg-brand px-5 py-3 font-medium text-white hover:bg-brand-dark">Set up your switch</Link>
           <a href="#how" className="rounded-lg border border-black/15 px-5 py-3 font-medium hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10">How it works</a>
         </div>
+        </div>
+        <img src="/logo-mark.png" alt="busfactor logo: a letter b with a keyhole" width={256} height={256} className="mx-auto hidden h-64 w-64 lg:block" />
       </section>
 
       <section id="how">
@@ -63,7 +86,7 @@ export default async function Home() {
         </ol>
       </section>
 
-      <section>
+      <section id="who">
         <h2 className="mb-2 text-2xl font-semibold tracking-tight">Not a developer? It&apos;s for you too.</h2>
         <p className="mb-8 max-w-3xl text-black/70 dark:text-white/70">
           Anyone can have a bus factor of one. If there is something only you know how to find, open or keep running, busfactor makes
@@ -79,7 +102,7 @@ export default async function Home() {
         </ul>
       </section>
 
-      <section className="grid gap-6 rounded-2xl bg-ink p-8 text-white sm:grid-cols-3 dark:bg-white/5">
+      <section id="security" className="grid gap-6 rounded-2xl bg-ink p-8 text-white sm:grid-cols-3 dark:bg-white/5">
         <div>
           <h3 className="mb-2 font-semibold">Only they can open it</h3>
           <p className="text-sm text-white/70">Locked in your browser to your trusted person&apos;s own key. Only their passphrase opens it: not us, not even you.</p>
@@ -94,7 +117,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="max-w-3xl">
+      <section id="faq" className="max-w-3xl">
         <h2 className="mb-6 text-2xl font-semibold tracking-tight">Questions</h2>
         <dl className="space-y-5">
           {faqs.map(f => (
