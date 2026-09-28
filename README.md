@@ -29,7 +29,8 @@ Free and open source (MIT). Hosted at **[busfactor.co.uk](https://busfactor.co.u
 | **Consent first** | Contacts accept an invitation before they ever count, so nobody gets a frightening email out of the blue. |
 | **Two-factor login** | Passkeys and security keys (YubiKey, Face ID, Windows Hello), authenticator apps, email codes, recovery codes. |
 | **Extra alert channels** | ntfy, Discord, Slack, Telegram or any HMAC-signed webhook, for reminders that must not be missed and for automation (e.g. switch a site to maintenance mode when the handover is sent). |
-| **Check in anywhere** | Dashboard, one-click button in reminder emails, `curl`/CLI with a personal token. |
+| **Phone reminders, no app** | Reminders arrive as a notification on your phone instead of an email: tap it, confirm with Face ID or your fingerprint (passkey), done. Works in the browser on Android, and on iPhone (iOS 16.4+) once busfactor is added to the home screen. The second reminder always goes by email too, and a phone that stops receiving is removed and reported, so a silent failure cannot hide a missed check-in. |
+| **Check in anywhere** | Phone notification, dashboard, one-click button in reminder emails, `curl`/CLI with a personal token. Only a deliberate action counts: logging in or adding a device never resets the timer. |
 | **Pause** | Holiday or hospital stay: pause for up to 90 days. |
 | **Private by design** | Names, emails and contact details are encrypted at rest; a stolen database dump shows only scrambled data. |
 
@@ -62,11 +63,12 @@ busfactor is open source: anyone can read exactly how it works. Its security doe
 | **Login** | bcrypt (cost 12); hashed session tokens in httpOnly, SameSite cookies; 2FA attempts claimed atomically (no parallel brute force); TOTP codes single-use; only failed logins count towards limits, and an account under attack still lets the right password in with an emailed code; the owner is warned when someone passes the password but fails the second step. |
 | **Sensitive changes** | Turning the switch off, pausing, changing contacts, instructions, messages or channels needs the password re-entered within 15 minutes, and the owner is emailed about every such change. |
 | **Web hardening** | Nonce-based CSP (no inline scripts), `Referrer-Policy: no-referrer`, HSTS, frame denial, same-origin checks on every POST, streaming request-size limits, DB-backed rate limits, no account enumeration. |
+| **Phone notifications** | Web Push with a server key pair created on first run (private half encrypted in the database). Subscriptions are encrypted at rest and only accepted for the real push services (Google, Apple, Mozilla, Microsoft), so the server can never be pointed at another address. Payloads are end-to-end encrypted to the device. Adding a device needs the password and emails the owner. |
 | **SSRF guard** | User-supplied alert URLs: HTTPS only, DNS resolved and pinned, every private, reserved and IPv4-in-IPv6 range refused (via ipaddr.js), no redirects, hard 10-second deadline. |
 
 It has had an independent adversarial review. See [docs/HOSTING.md](docs/HOSTING.md) for what a break-in would and would not reveal, and the checklist for running it as a public service.
 
-**Limits, stated honestly:** email can be delayed or land in spam (add an alert channel); a server can be down (the scheduler catches up, with a minimum 12-hour gap between reminder stages, and `/api/health` plus `HEALTHCHECK_PING_URL` tell you when it stops). busfactor is not a will or a legal document: keep a written plan with the people you trust too.
+**Limits, stated honestly:** email can be delayed or land in spam (turn on phone reminders or add an alert channel); phone notifications can silently stop after a phone is replaced or reset (the second reminder therefore always goes by email as well); a server can be down (the scheduler catches up, with a minimum 12-hour gap between reminder stages, and `/api/health` plus `HEALTHCHECK_PING_URL` tell you when it stops). busfactor is not a will or a legal document: keep a written plan with the people you trust too.
 
 ---
 

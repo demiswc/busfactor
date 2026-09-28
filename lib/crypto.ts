@@ -79,6 +79,11 @@ export function emailHash(email: string): string {
   return createHmac('sha256', subkey('lookup')).update(normaliseEmail(email)).digest('hex')
 }
 
+/** Keyed fingerprint of any lookup value (e.g. a push endpoint). */
+export function lookupHash(kind: string, value: string): string {
+  return createHmac('sha256', subkey('lookup')).update(`${kind}:${value}`).digest('hex')
+}
+
 export const hashToken = (t: string) => createHash('sha256').update(t).digest('hex')
 
 /** A random URL-safe token; only its hash is ever stored. */

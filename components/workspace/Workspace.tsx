@@ -11,8 +11,9 @@ import { Muted, Notice } from '@/components/ui'
 import { CheckInButton, ResendVerification } from '@/components/CheckIn'
 import { Account, Contacts, Instructions, ReauthBar, TestEmails, Timers, type Status } from '@/app/settings/SettingsClient'
 import { AlertChannels, CheckinTokens, PersonalMessages, Security } from '@/components/settings/Sections'
+import { PhoneReminders } from '@/components/workspace/Phone'
 
-type StepId = 'overview' | 'email' | 'login' | 'people' | 'messages' | 'instructions' | 'switch' | 'test' | 'channels' | 'terminal' | 'activity' | 'account'
+type StepId = 'overview' | 'email' | 'login' | 'phone' | 'people' | 'messages' | 'instructions' | 'switch' | 'test' | 'channels' | 'terminal' | 'activity' | 'account'
 
 interface Step {
   id: StepId
@@ -53,6 +54,10 @@ function buildSteps(st: Status): { setup: Step[]; more: Step[] } {
       how: ['Enter your password in the box below.', 'Add a passkey or security key (strongest), an authenticator app, or email codes.', 'Keep the recovery codes somewhere safe.'],
     },
     {
+      id: 'phone', group: 'Your account', title: 'Check in from your phone', optional: true, done: st.push.devices.length > 0,
+      why: 'Get your check-in reminders as a notification on your phone instead of by email. Tap it, confirm it is you, done. No app to install: it works in your phone\'s browser, on iPhone and Android.',
+    },
+    {
       id: 'people', group: 'Your people', title: 'Choose your people', done: confirmers >= 2 && trusted.length >= 1, needsPassword: true,
       why: 'Confirmers are asked "are you OK?" if you go quiet. Your trusted person receives the handover. You need at least one of each before you can switch on, and one person can be both. Nobody counts until they accept.',
       how: [`Add two confirmers: people who would notice if you went quiet (${confirmers} of 2 accepted). With two, one mistaken "not OK" cannot start a handover on its own.`, `Add the person who should take over (${trusted.length ? 'done' : 'not yet'}). They can also be one of your confirmers.`, 'They each get an email to accept. Your trusted person chooses their own passphrase.'],
@@ -79,8 +84,8 @@ function buildSteps(st: Status): { setup: Step[]; more: Step[] } {
     },
   ]
   const more: Step[] = [
-    { id: 'channels', group: 'More', title: 'Alert channels', needsPassword: true, why: 'Get reminders on your phone as well as by email: ntfy, Discord, Slack, Telegram or a webhook.' },
-    { id: 'terminal', group: 'More', title: 'Check in from the terminal', why: 'A personal token so you can check in with one command.' },
+    { id: 'channels', group: 'More', title: 'Alert channels', needsPassword: true, why: 'Send your reminders and alerts to ntfy, Discord, Slack, Telegram or a webhook as well. For notifications on your phone, use "Check in from your phone".' },
+    { id: 'terminal', group: 'More', title: 'Check in from the terminal', why: 'A personal token so you can check in with one command. Run it yourself when you mean it: never put it in a scheduled job, or it would keep saying you are OK when you are not.' },
     { id: 'activity', group: 'More', title: 'Activity', why: 'Everything that has happened on your account.' },
     { id: 'account', group: 'More', title: 'Account', why: 'Change your password or delete your account.' },
   ]
@@ -113,7 +118,7 @@ function NotCovered({ st }: { st: Status }) {
   )
 }
 
-function StatusPanel({ st }: { st: Status }) {
+function StatusPanel({ st, go }: { st: Status; go: (id: StepId) => void }) {
   const s = st.settings
   const stage = STAGE[s.stage] ?? STAGE.ACTIVE
   const urgent = s.stage !== 'ACTIVE'
@@ -147,6 +152,7 @@ function StatusPanel({ st }: { st: Status }) {
           <li><Link href="/#how" className="text-brand hover:underline">How the switch works</Link></li>
           <li><Link href="/privacy" className="text-brand hover:underline">What we store, and what we can&apos;t read</Link></li>
           <li>Going away? Pause your switch for up to 90 days under &ldquo;Set your timers&rdquo;.</li>
+          {st.push.devices.length === 0 && <li>Rather not get reminder emails? <button onClick={() => go('phone')} className="text-brand hover:underline">Get them on your phone</button>.</li>}
         </ul>
       </div>
     </div>
@@ -220,6 +226,7 @@ export default function Workspace() {
   const body: Partial<Record<StepId, ReactNode>> = {
     email: st.user.verified ? <Notice tone="ok">Your email address is confirmed.</Notice> : <Notice tone="warn">Didn&apos;t get it? Check your spam folder, or <ResendVerification /></Notice>,
     login: <Security st={st} reload={load} />,
+    phone: <PhoneReminders st={st} reload={load} go={go} />,
     people: <Contacts st={st} reload={load} />,
     messages: st.nominees.some(n => n.role === 'TRUSTED' && n.status === 'ACCEPTED')
       ? <PersonalMessages st={st} reload={load} />
@@ -244,7 +251,7 @@ export default function Workspace() {
   return (
     <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_280px]">
       {/* Left: progress and steps */}
-      <nav className="order-2 space-y-4 lg:order-1" aria-label="Setup steps">
+      <nav className="order-3 space-y-4 lg:order-1" aria-label="Setup steps">
         <div className="rounded-2xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-white/5">
           <div className="flex items-center justify-between text-sm font-medium">
             <span>{allDone ? 'Setup complete' : 'Your setup'}</span>
@@ -291,7 +298,7 @@ export default function Workspace() {
       </nav>
 
       {/* Middle: the chosen step */}
-      <section className="order-3 min-w-0 rounded-2xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-white/5 lg:order-2" aria-live="polite">
+      <section className="order-2 min-w-0 rounded-2xl border border-black/10 bg-white p-6 dark:border-white/10 dark:bg-white/5 lg:order-2" aria-live="polite">
         {current === 'overview' || !step ? (
           <div className="space-y-6">
             <div>
@@ -339,7 +346,7 @@ export default function Workspace() {
       </section>
 
       {/* Right: the switch */}
-      <aside className="order-1 lg:order-3"><StatusPanel st={st} /></aside>
+      <aside className="order-1 lg:order-3"><StatusPanel st={st} go={go} /></aside>
     </div>
   )
 }

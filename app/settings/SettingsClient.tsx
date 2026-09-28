@@ -14,9 +14,11 @@ export interface Status {
     reminder1AfterDays: number; reminder2AfterDays: number; nomineeAlertAfterDays: number
     requiredConfirmations: number; nomineeReminderHours: number; nomineeFinalHours: number; holdHours: number
     instructionsMode: 'NONE' | 'SERVER' | 'SEALED'; sealedHint: string | null
+    reminder1Email: boolean
   }
   hasInstructions: boolean
   coverage: { confirmers: number; trusted: number; ok: boolean; missing: string[] }
+  push: { publicKey: string; devices: Array<{ id: string; name: string; createdAt: string; lastOkAt: string | null; lastFailAt: string | null; failures: number }> }
   serverInstructionsAllowed: boolean
   channels: Array<{ id: string; label: string; kind: string; host: string }>
   channelSecret: string | null

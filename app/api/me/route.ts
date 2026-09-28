@@ -20,5 +20,6 @@ export const PUT = sudoRoute(async (req, user) => {
     nomineeFinalHours: num(b.nomineeFinalHours),
     holdHours: num(b.holdHours),
     pausedUntil: b.pausedUntil === undefined ? undefined : (b.pausedUntil || null),
+    reminder1Email: typeof b.reminder1Email === 'boolean' ? b.reminder1Email : undefined,
   }))
 })

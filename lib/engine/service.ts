@@ -18,6 +18,7 @@ import { sendMail } from '../mail'
 import { isPublicKeyJwk, isRecipientBox, isSealedBox, keyFingerprint } from '../sealed'
 import { sendToChannel, validateChannelUrl, channelKind, type AlertEvent, type Channel } from '../channels'
 import { recordTick, schedulerHealthy } from '../system'
+import { findPushDevice, listPushDevices, pushToUser, savePushDevice, vapidKeys, type PushMessage } from '../push'
 import { UserError } from '../errors'
 import { rateLimit } from '../auth'
 import { clockStart, daysSince, decide, isPaused, othersContacted, type HoldReason, type Stage } from './stages'
@@ -143,6 +144,59 @@ async function notifyChannels(userId: string, e: Omit<AlertEvent, 'at'>) {
   for (const [i, err] of errs.entries()) if (err) await logEvent(userId, 'CHANNEL_FAILED', `${chans[i].label}: ${err}`)
 }
 
+/**
+ * Sends a notification to the owner's phones and browsers. Returns how many devices got it.
+ * A device the push service reports as gone is removed, and the owner is told by email, because a
+ * reminder that silently stops arriving is exactly what must not happen.
+ */
+async function pushOwner(userId: string, msg: PushMessage): Promise<number> {
+  try {
+    const r = await pushToUser(userId, msg)
+    if (r.removed.length) {
+      const u = await owner(userId)
+      for (const name of r.removed) {
+        await logEvent(userId, 'PUSH_DEVICE_REMOVED', name)
+        await send(userId, u.email, Emails.pushDeviceGone(u.name, name, `${appUrl()}/login?next=${encodeURIComponent('/dashboard?s=phone')}`), 'push device gone')
+      }
+    }
+    return r.delivered
+  } catch (e) {
+    console.error('[busfactor] push failed', e)
+    return 0
+  }
+}
+
+/** A check-in link for a notification (separate from the email's, so using one does not spoil the other). */
+async function phoneCheckinUrl(userId: string) {
+  return `${await checkinUrl(userId)}&via=phone`
+}
+
+export async function addPushDevice(userId: string, subscription: unknown, name: unknown) {
+  const r = await savePushDevice(userId, subscription, name)
+  if (r.isNew) {
+    await logEvent(userId, 'PUSH_DEVICE_ADDED', r.name)
+    await securityNotice(userId, `"${r.name}" was added as a device that receives your check-in reminders.`)
+  }
+  return r
+}
+
+export async function removePushDevice(userId: string, id: string) {
+  const row = await db.pushDevice.findFirst({ where: { id, userId } })
+  if (!row) return
+  await db.pushDevice.delete({ where: { id: row.id } })
+  await logEvent(userId, 'PUSH_DEVICE_DELETED', decPii(row.nameEnc))
+  await securityNotice(userId, `"${decPii(row.nameEnc)}" will no longer receive your check-in reminders.`)
+}
+
+export async function testPush(userId: string) {
+  if (!(await rateLimit(`push-test:${userId}`, 10, HOUR))) throw new UserError('Please wait a little before sending another test.')
+  const n = await pushOwner(userId, { title: 'busfactor test', body: 'Notifications are working. This is what your check-in reminders will look like.', url: `${appUrl()}/dashboard?s=phone`, tag: 'test' })
+  await logEvent(userId, 'PUSH_TEST', `${n} device(s)`)
+  return { delivered: n }
+}
+
+export { findPushDevice }
+
 export async function setChannels(userId: string, list: Array<{ label?: string; url: string }>) {
   if (!Array.isArray(list) || list.length > MAX_CHANNELS) throw new UserError(`You can add up to ${MAX_CHANNELS} alert channels.`)
   const out: Channel[] = []
@@ -215,6 +269,7 @@ export async function getStatus(userId: string) {
     },
     notOkCount: await notOkCount(userId, s.alertCycleId),
     coverage: await coverage(userId),
+    push: { publicKey: (await vapidKeys()).publicKey, devices: await listPushDevices(userId) },
     nominees: nomineeRows.map(decNominee).map(n => ({ ...n, message: msgBy.get(n.id) ?? null })),
     channels: channels.map(c => ({ id: c.id, label: c.label, kind: channelKind(c.url), host: new URL(c.url).host })),
     channelSecret: channels.length ? decPiiOpt(channelSecret) : null,
@@ -245,6 +300,7 @@ export interface SettingsInput {
   nomineeFinalHours?: number
   holdHours?: number
   pausedUntil?: string | null
+  reminder1Email?: boolean
 }
 
 /** Tells the owner by email whenever something that could weaken their switch changes. */
@@ -271,6 +327,7 @@ export async function updateSettings(userId: string, input: SettingsInput) {
     nomineeFinalHours: intIn(input.nomineeFinalHours ?? s.nomineeFinalHours, 1, 720, 'Final wait must be 1–720 hours.'),
     holdHours: intIn(input.holdHours ?? s.holdHours, 0, 720, 'Hold must be 0–720 hours.'),
   } as Record<string, unknown>
+  if (typeof input.reminder1Email === 'boolean') data.reminder1Email = input.reminder1Email
 
   if (input.pausedUntil !== undefined) {
     if (input.pausedUntil === null || input.pausedUntil === '') data.pausedUntil = null
@@ -490,12 +547,12 @@ export async function checkIn(userId: string, source = 'dashboard') {
 }
 
 /** One-click check-in from a reminder email (after a button press on the page it opens). */
-export async function checkInWithLink(token: string) {
+export async function checkInWithLink(token: string, source = 'email link') {
   const row = await db.authToken.findUnique({ where: { tokenHash: hashToken(token ?? '') } })
   if (!row || row.purpose !== 'CHECKIN' || row.usedAt || row.expiresAt < new Date()) return { ok: false }
   const upd = await db.authToken.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: new Date() } })
   if (upd.count !== 1) return { ok: false }
-  await checkIn(row.userId, 'email link')
+  await checkIn(row.userId, source)
   return { ok: true, name: (await owner(row.userId)).name }
 }
 
@@ -633,6 +690,7 @@ async function maybeStartHold(userId: string, reason: HoldReason) {
     await send(userId, n.email, Emails.holdStartedNominee(n.name, u.name, holdEndsAt, reason), 'hold started (contact)')
   }
   await notifyChannels(userId, { event: 'HOLD_STARTED', title: 'Handover has started', message: `Your handover will be sent ${holdEndsAt.toUTCString()} unless you check in.`, url: loginUrl() })
+  await pushOwner(userId, { title: 'Your handover has started', body: 'It will be sent unless you check in. Tap to cancel it.', url: await phoneCheckinUrl(userId), tag: 'checkin', urgent: true })
   if (s.holdHours === 0) await tickUser(userId)
 }
 
@@ -669,9 +727,16 @@ export async function tickUser(userId: string, now = new Date()) {
       const from: Stage = action.n === 1 ? 'ACTIVE' : 'REMINDER_1'
       const to: Stage = action.n === 1 ? 'REMINDER_1' : 'REMINDER_2'
       if (await transition(userId, from, { stage: to })) {
-        const cUrl = await checkinUrl(userId)
-        await send(userId, u.email, Emails.reminder(action.n, u.name, action.daysSince, loginUrl(), cUrl), `reminder ${action.n}`)
-        await logEvent(userId, `REMINDER_${action.n}_SENT`, `${action.daysSince} days since check-in`)
+        // Phone first. The first reminder goes by email only if no phone got it (or the owner asked for both);
+        // the second reminder always goes by email too, because a notification can fail silently.
+        const phones = await pushOwner(userId, {
+          title: action.n === 1 ? 'Time for your check-in' : 'Second reminder: please check in',
+          body: action.n === 1 ? 'Tap to tell busfactor you are OK.' : `${action.daysSince} days since your last check-in. Your contacts will be asked soon.`,
+          url: await phoneCheckinUrl(userId), tag: 'checkin', urgent: action.n === 2,
+        })
+        const emailToo = action.n === 2 || phones === 0 || s.reminder1Email
+        if (emailToo) await send(userId, u.email, Emails.reminder(action.n, u.name, action.daysSince, loginUrl(), await checkinUrl(userId)), `reminder ${action.n}`)
+        await logEvent(userId, `REMINDER_${action.n}_SENT`, `${action.daysSince} days since check-in; ${[phones ? `phone (${phones})` : '', emailToo ? 'email' : ''].filter(Boolean).join(' and ')}`)
         await notifyChannels(userId, { event: `REMINDER_${action.n}`, title: action.n === 1 ? 'Time to check in' : 'Second reminder: check in now', message: `${action.daysSince} days since your last check-in.`, url: loginUrl() })
       }
       break
@@ -695,6 +760,7 @@ export async function tickUser(userId: string, now = new Date()) {
         }
         await logEvent(userId, 'NOMINEES_ALERTED', confirmers.map(c => c.name).join(', '))
         await notifyChannels(userId, { event: 'NOMINEES_ALERTED', title: 'Your contacts are being asked if you are OK', message: 'Check in now if you are fine.', url: loginUrl() })
+        await pushOwner(userId, { title: 'Your contacts are being asked if you are OK', body: 'Tap to check in and cancel it.', url: await phoneCheckinUrl(userId), tag: 'checkin', urgent: true })
       }
       break
     }
@@ -718,6 +784,7 @@ export async function tickUser(userId: string, now = new Date()) {
       await send(userId, u.email, Emails.nomineeReminderOwner(silent.map(n => n.name), deadline, cUrl), 'contact reminder (owner)')
       await logEvent(userId, 'NOMINEES_REMINDED', silent.map(n => n.name).join(', ') || 'everyone had answered')
       await notifyChannels(userId, { event: 'NOMINEES_REMINDED', title: 'Your contacts have been chased', message: `Handover starts ${deadline.toUTCString()} unless someone says you are OK.`, url: loginUrl() })
+      await pushOwner(userId, { title: 'Your contacts have been reminded', body: 'Your handover will start soon. Tap to check in and cancel it.', url: await phoneCheckinUrl(userId), tag: 'checkin', urgent: true })
       break
     }
     case 'START_HOLD':
@@ -743,6 +810,7 @@ export async function tickUser(userId: string, now = new Date()) {
       await send(userId, u.email, Emails.handoverSentOwner(trusted.map(t => t.name)), 'handover (owner copy)')
       await logEvent(userId, 'HANDOVER_SENT', trusted.map(t => t.name).join(', ') || 'NO TRUSTED CONTACT SET')
       await notifyChannels(userId, { event: 'HANDOVER_SENT', title: 'Handover sent', message: 'Your handover link has been sent to your trusted people.', url: loginUrl() })
+      await pushOwner(userId, { title: 'Your handover was sent', body: 'Log in to cancel it: the links stop working as soon as you check in.', url: loginUrl(), tag: 'checkin', urgent: true })
       break
     }
   }

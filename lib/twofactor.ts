@@ -248,3 +248,46 @@ export async function removePasskey(userId: string, id: string) {
   const res = await db.passkey.deleteMany({ where: { id, userId } })
   if (res.count) await logEvent(userId, 'PASSKEY_REMOVED', id)
 }
+
+// ------------------------------------------------------------------ check in with a passkey (from a reminder link)
+
+async function checkinToken(token: string) {
+  const row = await db.authToken.findUnique({ where: { tokenHash: hashToken(token ?? '') } })
+  if (!row || row.purpose !== 'CHECKIN' || row.usedAt || row.expiresAt < new Date()) return null
+  return row
+}
+
+/** For "check in with Face ID": passkey options for the owner of a valid check-in link, or null if they have none. */
+export async function checkinPasskeyOptions(token: string) {
+  const row = await checkinToken(token)
+  if (!row) throw new UserError('This check-in link has already been used or has expired. Please log in instead.')
+  const keys = await db.passkey.findMany({ where: { userId: row.userId } })
+  if (!keys.length) return null
+  const opts = await generateAuthenticationOptions({
+    rpID: rp().rpID, userVerification: 'required',
+    allowCredentials: keys.map(k => ({ id: k.credentialId, transports: k.transports ? (k.transports.split(',') as AuthenticatorTransport[]) : undefined })),
+  })
+  await db.authToken.update({ where: { id: row.id }, data: { challenge: opts.challenge } })
+  return opts
+}
+
+/** Verifies the passkey (with Face ID / fingerprint / PIN), then uses the link to check in. */
+export async function checkinWithPasskey(token: string, response: AuthenticationResponseJSON) {
+  const row = await checkinToken(token)
+  if (!row || !row.challenge) throw new UserError('This check-in link has already been used or has expired. Please log in instead.')
+  const key = await db.passkey.findFirst({ where: { userId: row.userId, credentialId: String(response?.id ?? '') } })
+  if (!key) throw new UserError('That passkey is not registered on this account.')
+  let ok = false
+  try {
+    const v = await verifyAuthenticationResponse({
+      response, expectedChallenge: row.challenge, expectedOrigin: rp().origin, expectedRPID: rp().rpID, requireUserVerification: true,
+      credential: { id: key.credentialId, publicKey: Buffer.from(key.publicKey, 'base64url'), counter: key.counter, transports: key.transports?.split(',') as AuthenticatorTransport[] | undefined },
+    })
+    ok = v.verified
+    if (ok) await db.passkey.update({ where: { id: key.id }, data: { counter: v.authenticationInfo.newCounter, lastUsedAt: new Date() } })
+  } catch { ok = false }
+  // One try per challenge.
+  await db.authToken.update({ where: { id: row.id }, data: { challenge: null } })
+  if (!ok) throw new UserError('The passkey could not be verified. Please try again.')
+  return { userId: row.userId, keyName: key.name }
+}

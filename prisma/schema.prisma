@@ -33,6 +33,7 @@ model User {
   authTokens AuthToken[]
   challenges AuthChallenge[]
   passkeys   Passkey[]
+  pushDevices PushDevice[]
   apiTokens  ApiToken[]
   switch     Switch?
   nominees   Nominee[]
@@ -63,6 +64,7 @@ model AuthToken {
   tokenHash String    @unique
   userId    String
   purpose   String // VERIFY | RESET | CHECKIN
+  challenge String?   @db.VarChar(255) // CHECKIN: pending passkey challenge for "check in with Face ID"
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
@@ -89,6 +91,23 @@ model AuthChallenge {
 
   @@index([userId])
   @@map("auth_challenges")
+}
+
+/// A phone or browser that receives check-in reminders as notifications (Web Push; no app needed).
+model PushDevice {
+  id           String    @id @default(cuid())
+  userId       String
+  endpointHash String    @unique // keyed hash of the push endpoint, to spot the same device twice
+  subEnc       String    @db.Text // encrypted push subscription (endpoint + keys)
+  nameEnc      String    @db.Text // encrypted device name, e.g. "Demis's iPhone"
+  createdAt    DateTime  @default(now())
+  lastOkAt     DateTime?
+  lastFailAt   DateTime?
+  failures     Int       @default(0)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_devices")
 }
 
 model Passkey {
@@ -165,6 +184,7 @@ model Switch {
   sealedHint            String?   @db.Text // encrypted
   alertChannels         String?   @db.Text // encrypted JSON: [{ id, label, url }]
   channelSecret         String?   @db.Text // encrypted HMAC secret for signing webhook calls
+  reminder1Email        Boolean   @default(false) // with phone notifications on: also email the first reminder
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)

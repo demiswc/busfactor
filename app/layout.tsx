@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import Link from 'next/link'
 import './globals.css'
 import { getCurrentUser } from '@/lib/auth'
@@ -7,7 +7,11 @@ import { LogoutButton } from '@/components/LogoutButton'
 export const metadata: Metadata = {
   title: 'busfactor: a dead man\'s switch for solo developers, and anyone who holds the keys',
   description: 'Check in every few weeks. If you stop, the people you trust are asked if you are OK, and your handover instructions reach the right person. Free and open source.',
+  appleWebApp: { capable: true, title: 'busfactor', statusBarStyle: 'default' },
+  icons: { icon: '/icon-192.png', apple: '/apple-touch-icon.png' },
 }
+
+export const viewport: Viewport = { themeColor: '#0f766e' }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser().catch(() => null)

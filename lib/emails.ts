@@ -190,6 +190,16 @@ export const Emails = {
         ${button(url, 'Choose your people', RED)}`, RED),
     }
   },
+  pushDeviceGone(name: string, device: string, url: string) {
+    return {
+      subject: `${APP_NAME}: reminders to "${device}" have stopped`,
+      html: wrap('Phone reminders have stopped', `<p>Hi ${esc(name)},</p>
+        <p>Check-in reminders can no longer reach <strong>${esc(device)}</strong>. This happens after a phone is replaced or reset,
+        the browser's data is cleared, or notifications are turned off. We have removed it, and your reminders will come by email instead.</p>
+        <p>To get reminders on your phone again, open busfactor on it and turn notifications back on.</p>
+        ${button(url, 'Set up phone reminders')}`),
+    }
+  },
   secondFactorFailures(name: string, url: string) {
     return {
       subject: `${APP_NAME}: someone may know your password`,
