@@ -51,6 +51,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <footer className="mx-auto max-w-7xl px-4 pb-10 text-xs text-black/50 dark:text-white/50">
           <div className="flex flex-wrap gap-4 border-t border-black/10 pt-6 dark:border-white/10">
             <span>busfactor</span>
+            <Link href="/#why" className="hover:underline">Why busfactor</Link>
             <Link href="/#how" className="hover:underline">How it works</Link>
             <Link href="/#who" className="hover:underline">Who it&apos;s for</Link>
             <Link href="/#security" className="hover:underline">Security</Link>

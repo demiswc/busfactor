@@ -1,6 +1,26 @@
 /** Starting points for handover instructions. Every "______" is a gap to fill in. */
 export const TEMPLATES: Array<{ id: string; label: string; text: string }> = [
   {
+    id: 'pointer',
+    label: 'Point to my full plan',
+    text: `If you are reading this, I can't look after things myself right now. Thank you for helping.
+
+MY FULL CONTINUITY PLAN IS HERE
+- Where it is: ______ (e.g. printed in the fire safe / encrypted USB drive in ______ / shared folder ______)
+- How to open it: ______ (e.g. password manager emergency access, the PIN on the card in ______)
+- Start with its "First 24 hours" section.
+
+IF YOU CANNOT FIND IT
+- Call first: ______ (phone ______). They know where things are.
+- Then: ______
+
+THE THREE THINGS THAT MATTER MOST
+1. ______
+2. ______
+3. ______
+`,
+  },
+  {
     id: 'developer',
     label: 'Developer',
     text: `If you are reading this, I can't look after my systems right now. Thank you for helping.
@@ -30,6 +50,54 @@ PEOPLE
 MONEY
 - Monthly costs that must keep being paid: ______
 - What can be safely switched off: ______
+`,
+  },
+  {
+    id: 'platform',
+    label: 'Platform or SaaS',
+    text: `If you are reading this, I can't run the platform right now. Thank you for keeping it alive.
+Customers depend on it, so please read the first section before touching anything.
+
+1. FIRST 24 HOURS: KEEP THE LIGHTS ON
+- The platform runs on its own. Do not change, restart or delete anything in a hurry.
+- Check it is up: ______ (status page / health URL / monitoring login)
+- Tell these people I am unavailable and you are the contact for now: ______
+- If it goes down, call: ______ (hosting support / a developer I trust)
+
+2. KEY PEOPLE
+- Business partner / co-director: ______
+- A developer who could take over: ______
+- Accountant: ______   Solicitor: ______
+- Important customers to reassure first: ______
+
+3. WHERE THE KEYS ARE
+- Password manager: ______ (emergency access / recovery kit in ______)
+- Hardware keys (YubiKey etc.) and their PINs: ______
+- Server root / SSH access: ______
+- Two-factor codes go to: ______
+
+4. WHAT RUNS WHERE
+- Servers and hosting: ______ (provider, account, support number)
+- Domains and DNS: registrar ______, renewals due ______
+- Database and backups: ______ (where backups go, how to restore)
+- Code: repository ______, how to deploy: ______
+- Email and other services: ______
+
+5. MONEY
+- Payment providers (Stripe etc.) and where the money goes: ______
+- Monthly costs that must keep being paid: ______
+- Income: who pays, how, and when: ______
+- Insurance policies: ______
+
+6. SHORT TERM (FIRST WEEK)
+- ______
+
+7. MEDIUM TERM (FIRST MONTH)
+- Decide: keep running with a hired developer / sell / wind down gently.
+- Hiring a replacement developer: the skills needed are ______; a technical handover document is at ______
+
+8. MY WISHES FOR THE PLATFORM
+- ______
 `,
   },
   {

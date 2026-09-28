@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Card, H1, Notice } from '@/components/ui'
+import { Card, H1 } from '@/components/ui'
 
 export const metadata: Metadata = { title: 'Privacy', alternates: { canonical: '/privacy' } }
 
@@ -9,7 +9,6 @@ export default function Privacy() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <H1>Privacy</H1>
-      <Notice tone="warn">Draft. Have this reviewed before offering the service publicly.</Notice>
       <Card className="space-y-4 text-sm leading-relaxed">
         <p>This service is run by {operator}. Contact: {contact}.</p>
         <p><strong>What we store.</strong> Your name, email and a hashed password; your timer settings and check-in history; the names and email

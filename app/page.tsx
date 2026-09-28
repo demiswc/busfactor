@@ -55,7 +55,7 @@ export default async function Home() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
       <section className="grid items-center gap-10 pt-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="max-w-3xl">
-        <p className="mb-4 text-sm font-medium uppercase tracking-widest text-brand">For solo developers, and anyone who holds the keys</p>
+        <p className="mb-4 text-sm font-medium uppercase tracking-widest text-brand">For solo developers, freelancers, researchers and families</p>
         <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
           You&apos;re the only one with the keys. What happens if you go quiet?
         </h1>
@@ -71,6 +71,32 @@ export default async function Home() {
         </div>
         </div>
         <img src="/logo-mark.png" alt="busfactor logo: a letter b with a keyhole" width={256} height={256} className="mx-auto hidden h-64 w-64 lg:block" />
+      </section>
+
+      <section id="why" className="grid gap-8 rounded-2xl border border-black/10 bg-white p-8 lg:grid-cols-2 dark:border-white/10 dark:bg-white/5">
+        <div>
+          <h2 className="mb-3 text-2xl font-semibold tracking-tight">Why &ldquo;busfactor&rdquo;?</h2>
+          <p className="text-black/70 dark:text-white/70">
+            In software, a project&apos;s <strong>bus factor</strong> is the number of people who would have to be hit by a bus before it
+            grinds to a halt, because nobody else knows how it works. If you built it and you run it alone, yours is one.
+          </p>
+          <p className="mt-3 text-black/70 dark:text-white/70">
+            busfactor is the insurance. Keep a written continuity plan, and busfactor makes sure it reaches the right person at the right
+            time, and never before.
+          </p>
+        </div>
+        <blockquote className="border-l-4 border-brand pl-5 text-black/80 dark:text-white/80">
+          <p>
+            &ldquo;I built a complete ordering platform for restaurants on my own: the servers, the code, the payments, the customers.
+            One day it hit me. If a bus hit me tomorrow, the platform would die with me, and the people who depend on it wouldn&apos;t
+            know where to start.
+          </p>
+          <p className="mt-3">
+            So I built a switch that checks I&apos;m still here. If I&apos;m not, it releases my plan and my secrets to the people who
+            know me, so they can carry the work on. Now it&apos;s free for anyone in the same position.&rdquo;
+          </p>
+          <footer className="mt-3 text-sm text-black/55 dark:text-white/55">The developer who built busfactor</footer>
+        </blockquote>
       </section>
 
       <section id="how">
@@ -117,8 +143,9 @@ export default async function Home() {
         </div>
       </section>
 
-      <section id="faq" className="max-w-3xl">
+      <section id="faq">
         <h2 className="mb-6 text-2xl font-semibold tracking-tight">Questions</h2>
+        <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="divide-y divide-black/10 rounded-2xl border border-black/10 bg-white dark:divide-white/10 dark:border-white/10 dark:bg-white/5">
           {faqs.map(f => (
             <details key={f.q} className="group">
@@ -129,6 +156,10 @@ export default async function Home() {
               <p className="px-5 pb-5 text-black/70 dark:text-white/70">{f.a}</p>
             </details>
           ))}
+        </div>
+        <img src="/handover-illustration.webp" width={1168} height={784} loading="lazy"
+          alt="A person holding a glowing key among their servers and code, while the person they trust waits to take over"
+          className="w-full rounded-2xl lg:sticky lg:top-6" />
         </div>
       </section>
     </div>

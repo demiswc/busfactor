@@ -233,6 +233,16 @@ export function Instructions({ st, reload }: { st: Status; reload: () => void })
         {mode !== 'NONE' && (
           <>
           {!text && (
+            <div className="rounded-xl border border-brand/30 bg-brand/5 p-4 text-sm">
+              <p className="font-semibold">Running a whole platform or business? Write a full continuity plan.</p>
+              <p className="mt-1 text-black/70 dark:text-white/70">
+                The best handover is a proper document kept somewhere safe (printed in a safe, on an encrypted USB drive, or in your password
+                manager&apos;s emergency access), with your busfactor instructions pointing your trusted person straight to it.
+                No plan yet? Start from <strong>Platform or SaaS</strong>: it has every section one needs. Already have one? Use <strong>Point to my full plan</strong>.
+              </p>
+            </div>
+          )}
+          {!text && (
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="text-black/60 dark:text-white/60">Start from a template:</span>
               {TEMPLATES.map(t => (
@@ -242,7 +252,7 @@ export function Instructions({ st, reload }: { st: Status; reload: () => void })
             </div>
           )}
           <Field label="Instructions">
-            <textarea value={text} onChange={e => setText(e.target.value)} rows={8} maxLength={20000}
+            <textarea value={text} onChange={e => setText(e.target.value)} rows={text ? 18 : 8} maxLength={20000}
               className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 font-mono text-sm dark:border-white/15 dark:bg-black/20"
               placeholder={'e.g.\nThe handover document is on the USB drive in the desk drawer.\nPasswords: 1Password, emergency kit is in the fire safe.\nCall Sam at the hosting company: 07…\nClients to notify: …'} />
           </Field>
