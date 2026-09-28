@@ -12,6 +12,7 @@ import { CheckInButton, ResendVerification } from '@/components/CheckIn'
 import { Account, Contacts, Instructions, ReauthBar, TestEmails, Timers, type Status } from '@/app/settings/SettingsClient'
 import { AlertChannels, CheckinTokens, PersonalMessages, Security } from '@/components/settings/Sections'
 import { PhoneReminders } from '@/components/workspace/Phone'
+import { WalkthroughVideo } from '@/components/WalkthroughVideo'
 
 type StepId = 'overview' | 'email' | 'login' | 'phone' | 'people' | 'messages' | 'instructions' | 'switch' | 'test' | 'channels' | 'terminal' | 'activity' | 'account'
 
@@ -154,6 +155,11 @@ function StatusPanel({ st, go }: { st: Status; go: (id: StepId) => void }) {
           <li>Going away? Pause your switch for up to 90 days under &ldquo;Set your timers&rdquo;.</li>
           {st.push.devices.length === 0 && <li>Rather not get reminder emails? <button onClick={() => go('phone')} className="text-brand hover:underline">Get them on your phone</button>.</li>}
         </ul>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-black/10 bg-white dark:border-white/10 dark:bg-white/5">
+        <p className="px-5 pb-3 pt-5 text-xs font-medium uppercase tracking-wider text-black/50 dark:text-white/50">Watch the walkthrough</p>
+        <WalkthroughVideo />
+        <p className="px-5 py-3 text-xs text-black/55 dark:text-white/55">Two minutes. Use the full-screen button to make it bigger.</p>
       </div>
     </div>
   )

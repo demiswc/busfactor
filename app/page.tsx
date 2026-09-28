@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { appUrl } from '@/lib/config'
+import { WalkthroughVideo } from '@/components/WalkthroughVideo'
 
 export const metadata: Metadata = { alternates: { canonical: '/' } }
 
@@ -47,6 +48,10 @@ export default async function Home() {
         image: `${url}/opengraph-image.png`,
       },
       { '@type': 'WebSite', '@id': `${url}/#site`, name: 'busfactor', url },
+      {
+        '@type': 'VideoObject', name: 'How to set up busfactor, a dead man\'s switch', description: 'A two-minute walk through setting up busfactor: account, login protection, your people, handover and switching it on.',
+        thumbnailUrl: `${url}/media/busfactor-walkthrough-poster.webp`, contentUrl: `${url}/media/busfactor-walkthrough.mp4`, uploadDate: '2026-09-28', duration: 'PT2M19S',
+      },
       { '@type': 'FAQPage', mainEntity: faqs.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) },
     ],
   }
@@ -110,6 +115,10 @@ export default async function Home() {
             </li>
           ))}
         </ol>
+        <div id="video" className="mx-auto mt-10 max-w-4xl scroll-mt-6">
+          <h3 className="mb-3 text-lg font-semibold">See it in two minutes</h3>
+          <WalkthroughVideo className="rounded-2xl border border-black/10 shadow-sm dark:border-white/10" />
+        </div>
       </section>
 
       <section id="who">

@@ -53,6 +53,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <span>busfactor</span>
             <Link href="/#why" className="hover:underline">Why busfactor</Link>
             <Link href="/#how" className="hover:underline">How it works</Link>
+            <Link href="/#video" className="hover:underline">Video walkthrough</Link>
             <Link href="/#who" className="hover:underline">Who it&apos;s for</Link>
             <Link href="/#security" className="hover:underline">Security</Link>
             <Link href="/#faq" className="hover:underline">Questions</Link>
