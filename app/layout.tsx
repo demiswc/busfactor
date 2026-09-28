@@ -5,8 +5,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { LogoutButton } from '@/components/LogoutButton'
 
 export const metadata: Metadata = {
-  title: 'busfactor: a check-in for people who run things alone',
-  description: 'Check in every few weeks. If you stop, the people you trust are asked if you are OK, and your handover instructions reach the right person.',
+  title: 'busfactor: a dead man\'s switch for solo developers, and anyone who holds the keys',
+  description: 'Check in every few weeks. If you stop, the people you trust are asked if you are OK, and your handover instructions reach the right person. Free and open source.',
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

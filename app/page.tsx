@@ -9,9 +9,17 @@ const steps = [
   { t: 'The right person takes over', d: 'Your trusted person gets a private link to your handover notes: where the keys are, who to call, what to keep running.' },
 ]
 
+const others = [
+  { t: 'Small business owners', d: 'The accounts, the suppliers, payroll, the till and the website. Who to call so the doors stay open.' },
+  { t: 'Freelancers and creatives', d: 'Work in progress for clients, unpublished manuscripts, music or photos, and where the originals live.' },
+  { t: 'Researchers and writers', d: 'Years of data, drafts and notes, where the backups are, and who should have them.' },
+  { t: 'The family admin', d: 'Bank accounts, bills, insurance, passwords, the will, and the things only you know how to do.' },
+  { t: 'Anyone keeping secrets safe', d: 'Crypto wallets, a safe, a deposit box, private archives: how to reach them, only when it is truly needed.' },
+]
+
 const faqs = [
-  { q: 'Who is this for?', a: 'Solo developers, freelancers, indie hackers and one-person agencies: anyone whose clients, servers and income depend on knowledge that lives only in their head.' },
-  { q: 'What should my handover say?', a: 'Where the password manager emergency kit is, which domains and certificates renew when, who hosts what, which clients to call first, how to pause billing, and what can safely be switched off. There is a developer template to start from.' },
+  { q: 'Who is this for?', a: 'It was built for solo developers, freelancers and one-person businesses: anyone whose clients, systems and income depend on knowledge that lives only in their head. But it works for anyone who is the only one holding the keys to something important, from a family\'s finances to a lifetime of creative work.' },
+  { q: 'What should my handover say?', a: 'Whatever the person taking over will need: where the passwords and keys are, who to call first, what must keep running, what bills to pay and what can be switched off. There are ready-made templates for developers, small businesses, creative work and household affairs to start from.' },
   { q: 'What if I am just on holiday?', a: 'Pause it for up to 90 days. And any one of your contacts answering "they\'re OK" resets everything straight away.' },
   { q: 'Can you read my instructions?', a: 'No. Personal messages are locked in your browser to your trusted person\'s own key, which only their passphrase opens, so nobody has to share a passphrase in advance. General instructions are sealed with a passphrase of your choice. We only ever store the locked versions, and names and emails are encrypted too.' },
   { q: 'How is my account protected?', a: 'Passkeys and security keys like YubiKey, authenticator apps or email codes. Turning your switch off or changing your contacts needs your password again, and you get an email about every such change.' },
@@ -25,7 +33,7 @@ export default async function Home() {
   return (
     <div className="space-y-20">
       <section className="max-w-3xl pt-6">
-        <p className="mb-4 text-sm font-medium uppercase tracking-widest text-brand">For solo developers</p>
+        <p className="mb-4 text-sm font-medium uppercase tracking-widest text-brand">For solo developers, and anyone who holds the keys</p>
         <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
           You&apos;re the only one with the keys. What happens if you go quiet?
         </h1>
@@ -52,6 +60,22 @@ export default async function Home() {
             </li>
           ))}
         </ol>
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-2xl font-semibold tracking-tight">Not a developer? It&apos;s for you too.</h2>
+        <p className="mb-8 max-w-3xl text-black/70 dark:text-white/70">
+          Anyone can have a bus factor of one. If there is something only you know how to find, open or keep running, busfactor makes
+          sure the right person can take over, and only when it is truly needed.
+        </p>
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {others.map(o => (
+            <li key={o.t} className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-white/5">
+              <h3 className="mb-1 font-semibold">{o.t}</h3>
+              <p className="text-sm text-black/65 dark:text-white/65">{o.d}</p>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="grid gap-6 rounded-2xl bg-ink p-8 text-white sm:grid-cols-3 dark:bg-white/5">

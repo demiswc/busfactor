@@ -1,8 +1,10 @@
 # busfactor
 
-**A dead man's switch for solo developers.**
+**A dead man's switch for solo developers, and anyone who holds the keys.**
 
 When you run everything yourself (the servers, domains, DNS, client sites, the Stripe account, the repos, the hardware keys), your *bus factor* is one. If you went quiet tomorrow, nobody would know where anything is.
+
+It was built for developers, but it works for anyone who is the only one who knows how to find, open or keep something running: a small business, a freelance practice, years of creative or research work, a family's finances, a crypto wallet or a safe. Templates are included for each.
 
 busfactor fixes that, gently:
 
@@ -22,7 +24,7 @@ Free and open source (MIT). Hosted at **[busfactor.co.uk](https://busfactor.co.u
 | **Human confirmation** | Two contacts confirm before anything is released (configurable), with reminders, "trust the first answer" and "no answer" rules, and a cancellable safety wait. Any contact saying *they're OK*, or you checking in, cancels everything instantly. |
 | **Recipient-held keys** | When your trusted person accepts, their browser makes a key pair locked with *their own* passphrase. Messages you leave them are encrypted to that key in your browser: not even the server can read them, and you never have to hand over a passphrase in advance. Key fingerprints let you both check the key by phone. |
 | **Personal messages + files** | A separate message for each trusted person, with attachments up to 10 MB (credentials, a PDF of your handover document…). |
-| **Sealed instructions** | General instructions locked with a passphrase (Argon2id → AES-256-GCM) in your browser. There's a developer template to start from. |
+| **Sealed instructions** | General instructions locked with a passphrase (Argon2id → AES-256-GCM) in your browser. Templates for developers, small businesses, creative work, household affairs and anything else. |
 | **Links, not secrets** | Nothing sensitive is ever emailed. The handover is a private link that dies the moment you check in. |
 | **Consent first** | Contacts accept an invitation before they ever count, so nobody gets a frightening email out of the blue. |
 | **Two-factor login** | Passkeys and security keys (YubiKey, Face ID, Windows Hello), authenticator apps, email codes, recovery codes. |

@@ -4,6 +4,7 @@ import { api } from '@/lib/client'
 import { sealText } from '@/lib/sealed'
 import { Button, Card, Field, H2, Input, Muted, Notice } from '@/components/ui'
 import { AlertChannels, CheckinTokens, PersonalMessages, Security } from '@/components/settings/Sections'
+import { TEMPLATES } from '@/lib/templates'
 
 export interface Nominee { id: string; name: string; email: string; role: 'CONFIRMER' | 'TRUSTED'; status: string; hasKey: boolean; publicKey: string | null; message: { sizeBytes: number; updatedAt: string } | null }
 export interface Status {
@@ -162,35 +163,6 @@ function Contacts({ st, reload }: { st: Status; reload: () => void }) {
 
 // ---------------------------------------------------------------- instructions
 
-const DEV_TEMPLATE = `If you are reading this, I can't look after my systems right now. Thank you for helping.
-
-FIRST 24 HOURS: nothing is on fire
-- Everything keeps running on its own. Don't change anything in a hurry.
-- Tell my clients (list below) that I'm unavailable and you're the contact for now.
-
-WHERE THE KEYS ARE
-- Password manager: ______ (emergency kit / recovery sheet is in ______)
-- Hardware security keys (YubiKey etc.): ______  PIN is in ______
-- Phone unlock / 2FA codes by SMS go to: ______
-- Printed handover document / USB drive: ______
-
-WHAT RUNS WHERE
-- Servers / hosting: ______ (provider, account email, support number)
-- Domains & DNS: registrar ______, renewals due ______
-- Code: GitHub / GitLab account ______
-- Email: ______
-- Payments & billing: Stripe / bank ______
-
-PEOPLE
-- Clients to contact first: ______
-- A developer I trust who can take over: ______
-- Accountant / solicitor: ______
-
-MONEY
-- Monthly costs that must keep being paid: ______
-- What can be safely switched off: ______
-`
-
 function Instructions({ st, reload }: { st: Status; reload: () => void }) {
   const [mode, setMode] = useState<'SEALED' | 'SERVER' | 'NONE'>(st.settings.instructionsMode === 'NONE' ? 'SEALED' : st.settings.instructionsMode)
   const [text, setText] = useState('')
@@ -239,7 +211,15 @@ function Instructions({ st, reload }: { st: Status; reload: () => void }) {
         </div>
         {mode !== 'NONE' && (
           <>
-          {!text && <button type="button" className="text-sm font-medium text-brand hover:underline" onClick={() => setText(DEV_TEMPLATE)}>Start from the developer template</button>}
+          {!text && (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-black/60 dark:text-white/60">Start from a template:</span>
+              {TEMPLATES.map(t => (
+                <button key={t.id} type="button" onClick={() => setText(t.text)}
+                  className="rounded-full border border-black/15 px-3 py-1 font-medium text-brand hover:bg-brand/5 dark:border-white/15">{t.label}</button>
+              ))}
+            </div>
+          )}
           <Field label="Instructions">
             <textarea value={text} onChange={e => setText(e.target.value)} rows={8} maxLength={20000}
               className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 font-mono text-sm dark:border-white/15 dark:bg-black/20"
