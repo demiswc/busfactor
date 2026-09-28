@@ -119,14 +119,17 @@ export default async function Home() {
 
       <section id="faq" className="max-w-3xl">
         <h2 className="mb-6 text-2xl font-semibold tracking-tight">Questions</h2>
-        <dl className="space-y-5">
+        <div className="divide-y divide-black/10 rounded-2xl border border-black/10 bg-white dark:divide-white/10 dark:border-white/10 dark:bg-white/5">
           {faqs.map(f => (
-            <div key={f.q}>
-              <dt className="font-semibold">{f.q}</dt>
-              <dd className="mt-1 text-black/70 dark:text-white/70">{f.a}</dd>
-            </div>
+            <details key={f.q} className="group">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 font-semibold hover:text-brand [&::-webkit-details-marker]:hidden">
+                {f.q}
+                <svg aria-hidden viewBox="0 0 20 20" className="h-5 w-5 shrink-0 text-black/40 transition-transform group-open:rotate-180 dark:text-white/40" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 8l5 5 5-5" /></svg>
+              </summary>
+              <p className="px-5 pb-5 text-black/70 dark:text-white/70">{f.a}</p>
+            </details>
           ))}
-        </dl>
+        </div>
       </section>
     </div>
   )
