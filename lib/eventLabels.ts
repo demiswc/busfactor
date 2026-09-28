@@ -10,7 +10,7 @@ export const EVENT_LABELS: Record<string, string> = {
   NOMINEES_ALERTED: 'Contacts asked if you are OK', NOMINEES_REMINDED: 'Silent contacts reminded',
   NOMINEE_SAYS_OK: 'A contact said you are OK', NOMINEE_SAYS_NOT_OK: 'A contact said you are not OK',
   HOLD_STARTED: 'Safety wait started', HANDOVER_SENT: 'Handover link sent', HANDOVER_VIEWED: 'Handover opened',
-  ALL_CLEAR_SENT: 'All-clear sent to contacts', NO_NOMINEES: 'No contacts to ask',
+  ALL_CLEAR_SENT: 'All-clear sent to contacts', NO_NOMINEES: 'No contacts to ask', NOT_COVERED: 'Warning sent: switch on but nobody to ask or hand over to',
   TEST_EMAILS_SENT: 'Test emails sent', EMAIL_FAILED: 'Email could not be sent', CHANNEL_FAILED: 'Alert channel failed',
   CHANNELS_UPDATED: 'Alert channels changed', API_TOKEN_CREATED: 'Check-in token created', API_TOKEN_REVOKED: 'Check-in token revoked',
   TOTP_ENABLED: 'Authenticator app on', TOTP_DISABLED: 'Authenticator app off', EMAIL_CODES_ENABLED: 'Email codes on',

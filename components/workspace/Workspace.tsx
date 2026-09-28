@@ -54,8 +54,8 @@ function buildSteps(st: Status): { setup: Step[]; more: Step[] } {
     },
     {
       id: 'people', group: 'Your people', title: 'Choose your people', done: confirmers >= 2 && trusted.length >= 1, needsPassword: true,
-      why: 'Confirmers are asked "are you OK?" if you go quiet. Your trusted person receives the handover. Nobody counts until they accept.',
-      how: [`Add two confirmers: people who would notice if you went quiet (${confirmers} of 2 accepted).`, `Add the person who should take over (${trusted.length ? 'done' : 'not yet'}).`, 'They each get an email to accept. Your trusted person chooses their own passphrase.'],
+      why: 'Confirmers are asked "are you OK?" if you go quiet. Your trusted person receives the handover. You need at least one of each before you can switch on, and one person can be both. Nobody counts until they accept.',
+      how: [`Add two confirmers: people who would notice if you went quiet (${confirmers} of 2 accepted). With two, one mistaken "not OK" cannot start a handover on its own.`, `Add the person who should take over (${trusted.length ? 'done' : 'not yet'}). They can also be one of your confirmers.`, 'They each get an email to accept. Your trusted person chooses their own passphrase.'],
     },
     {
       id: 'messages', group: 'Your handover', title: 'Leave a personal message', optional: true, done: trusted.some(n => n.message), needsPassword: true,
@@ -68,9 +68,9 @@ function buildSteps(st: Status): { setup: Step[]; more: Step[] } {
       how: ['Start from a template, or write your own.', 'Choose a passphrase and give it to your trusted person in advance, for example on paper in a safe place.', 'Press "Seal and save".'],
     },
     {
-      id: 'switch', group: 'Switch on', title: 'Set your timers and switch on', done: st.settings.enabled, needsPassword: true,
+      id: 'switch', group: 'Switch on', title: 'Set your timers and switch on', done: st.settings.enabled && st.coverage.ok, needsPassword: true,
       why: 'Nothing happens until your switch is on. The defaults suit most people: first reminder after 14 days.',
-      how: ['Adjust the timers if you like.', 'Tick "My switch is on" and save.'],
+      how: ['Make sure at least one confirmer and one trusted person have accepted.', 'Adjust the timers if you like.', 'Tick "My switch is on" and save.'],
     },
     {
       id: 'test', group: 'Switch on', title: 'Send yourself the test emails', done: st.events.some(e => e.type === 'TEST_EMAILS_SENT'),
@@ -103,6 +103,16 @@ function Flush({ children }: { children: ReactNode }) {
   return <div className="[&>section]:border-0 [&>section]:bg-transparent [&>section]:p-0 [&>section]:shadow-none [&>section>h2:first-child]:hidden">{children}</div>
 }
 
+/** Shown when the switch cannot actually do anything: nobody to ask, or nobody to hand over to. */
+function NotCovered({ st }: { st: Status }) {
+  return (
+    <Notice tone="error">
+      <span className="block font-medium">{st.settings.enabled ? 'Your switch is on, but it cannot hand over.' : 'You need people before you can switch on.'}</span>
+      <span className="mt-1 block">You have {st.coverage.missing.join(', and ')}. One person can be both.</span>
+    </Notice>
+  )
+}
+
 function StatusPanel({ st }: { st: Status }) {
   const s = st.settings
   const stage = STAGE[s.stage] ?? STAGE.ACTIVE
@@ -127,6 +137,7 @@ function StatusPanel({ st }: { st: Status }) {
         <div className="mt-5 [&_button]:w-full"><CheckInButton urgent={urgent} /></div>
         {urgent && <Muted className="mt-3">Checking in cancels everything and tells anyone we contacted that you are OK.</Muted>}
       </div>
+      {s.enabled && !st.coverage.ok && s.stage !== 'HANDOVER_SENT' && <NotCovered st={st} />}
       {s.enabled && !st.scheduler.healthy && (
         <Notice tone="error">Reminders may be delayed: the scheduler has not run recently. If you run this site, check the scheduler.</Notice>
       )}
@@ -167,6 +178,17 @@ export default function Workspace() {
   }, [])
   useEffect(() => { load() }, [load])
 
+  // Keep the page current when someone accepts an invitation elsewhere: refresh when you come back
+  // to the tab, and every 15 seconds while an invitation is still waiting.
+  const waiting = !!st?.nominees.some(n => n.status === 'PENDING')
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') load() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    const timer = waiting ? window.setInterval(() => { if (document.visibilityState === 'visible') load() }, 15_000) : undefined
+    return () => { document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('focus', onVisible); if (timer) window.clearInterval(timer) }
+  }, [load, waiting])
+
   const steps = useMemo(() => (st ? buildSteps(st) : null), [st])
 
   // Pick the step from the address (?s=people), otherwise the first unfinished one.
@@ -201,9 +223,17 @@ export default function Workspace() {
     people: <Contacts st={st} reload={load} />,
     messages: st.nominees.some(n => n.role === 'TRUSTED' && n.status === 'ACCEPTED')
       ? <PersonalMessages st={st} reload={load} />
-      : <Notice tone="info">First add the person who takes over, in &ldquo;Choose your people&rdquo;, and wait for them to accept.</Notice>,
+      : <Notice tone="info">
+          Personal messages go to the person who receives your handover, locked to their own passphrase.{' '}
+          {st.nominees.some(n => n.role === 'TRUSTED' && n.status === 'PENDING')
+            ? 'Your handover person has not accepted yet. This step opens as soon as they do.'
+            : st.nominees.some(n => n.role === 'CONFIRMER' && n.status === 'ACCEPTED')
+              ? 'Your confirmers cannot receive one. In “Choose your people”, press “Also receives handover” next to someone, or invite a new person as “Receives handover”.'
+              : 'First add them in “Choose your people” and wait for them to accept.'}
+          {' '}<button onClick={() => go('people')} className="font-medium underline">Choose your people</button>
+        </Notice>,
     instructions: <Instructions st={st} reload={load} />,
-    switch: <Timers st={st} reload={load} />,
+    switch: <>{!st.coverage.ok && <div className="mb-5"><NotCovered st={st} /></div>}<Timers st={st} reload={load} /></>,
     test: <TestEmails />,
     channels: <AlertChannels st={st} reload={load} />,
     terminal: <CheckinTokens st={st} reload={load} />,

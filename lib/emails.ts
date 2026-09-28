@@ -37,9 +37,11 @@ function whyText(owner: string, r: HoldReason) {
     : `None of ${o}'s chosen contacts replied to two emails, and ${o} has not responded for several weeks.`
 }
 
-const roleText = (role: string) => role === 'TRUSTED'
-  ? 'the person who receives their handover instructions if something happens to them'
-  : 'one of the people we ask "are they OK?" if they stop checking in'
+const roleText = (role: string) => role === 'BOTH'
+  ? 'one of the people we ask "are they OK?" if they stop checking in, and the person who receives their handover instructions if something happens to them'
+  : role === 'TRUSTED'
+    ? 'the person who receives their handover instructions if something happens to them'
+    : 'one of the people we ask "are they OK?" if they stop checking in'
 
 export const Emails = {
   // ------------------------------------------------------------------ account
@@ -176,6 +178,16 @@ export const Emails = {
       html: wrap('A change was made', `<p>Hi ${esc(name)},</p><p>${esc(what)}</p>
         <p>If this was you, there is nothing to do. <strong>If it was not you</strong>, log in, check your settings and change your password now.</p>
         ${button(loginUrl, 'Review my settings', RED)}`, RED),
+    }
+  },
+  notCovered(name: string, missing: string[], url: string) {
+    return {
+      subject: `⚠️ ${APP_NAME}: your switch is on but cannot hand over`,
+      html: wrap('Your switch cannot hand over yet', `<p>Hi ${esc(name)},</p>
+        <p>Your switch is on, but if you stopped checking in nothing would reach anyone, because you have:</p>
+        <ul>${missing.map(m => `<li>${esc(m)}</li>`).join('')}</ul>
+        <p>Invite someone new (or ask them to accept their invitation) and this will sort itself out.</p>
+        ${button(url, 'Choose your people', RED)}`, RED),
     }
   },
   secondFactorFailures(name: string, url: string) {

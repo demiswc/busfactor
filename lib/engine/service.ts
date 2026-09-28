@@ -84,6 +84,36 @@ async function effectiveRequired(userId: string, required: number) {
   return Math.max(1, Math.min(required, n || 1))
 }
 
+/**
+ * The minimum for a switch that can actually do something: one accepted confirmer to ask,
+ * and one accepted trusted person to receive the handover (they can be the same person).
+ */
+export async function coverage(userId: string) {
+  const [confirmers, trusted] = await Promise.all([
+    db.nominee.count({ where: { userId, role: 'CONFIRMER', status: 'ACCEPTED' } }),
+    db.nominee.count({ where: { userId, role: 'TRUSTED', status: 'ACCEPTED' } }),
+  ])
+  const missing: string[] = []
+  if (confirmers < 1) missing.push('no confirmer who has accepted (someone we can ask whether you are OK)')
+  if (trusted < 1) missing.push('no trusted person who has accepted (someone to receive your handover)')
+  return { confirmers, trusted, ok: missing.length === 0, missing }
+}
+
+/** Emails the owner when their switch is on but has nobody to ask or nobody to hand over to. */
+async function warnIfUncovered(userId: string, onlyIfNotWarnedForMs = 0) {
+  const s = await getSwitch(userId)
+  if (!s.enabled) return
+  const c = await coverage(userId)
+  if (c.ok) return
+  if (onlyIfNotWarnedForMs) {
+    const recent = await db.event.findFirst({ where: { userId, type: 'NOT_COVERED', createdAt: { gt: new Date(Date.now() - onlyIfNotWarnedForMs) } } })
+    if (recent) return
+  }
+  const u = await owner(userId)
+  await send(userId, u.email, Emails.notCovered(u.name, c.missing, `${appUrl()}/login?next=${encodeURIComponent('/dashboard?s=people')}`), 'not covered warning')
+  await logEvent(userId, 'NOT_COVERED', c.missing.join('; '))
+}
+
 export async function owner(userId: string) {
   const u = await db.user.findUniqueOrThrow({ where: { id: userId } })
   return { id: u.id, name: decPii(u.nameEnc), email: decPii(u.emailEnc), emailVerifiedAt: u.emailVerifiedAt }
@@ -184,6 +214,7 @@ export async function getStatus(userId: string) {
       goAheadAt: s.stage === 'NOMINEES_ALERTED' && s.nomineeReminderSentAt ? new Date(s.nomineeReminderSentAt.getTime() + s.nomineeFinalHours * HOUR) : null,
     },
     notOkCount: await notOkCount(userId, s.alertCycleId),
+    coverage: await coverage(userId),
     nominees: nomineeRows.map(decNominee).map(n => ({ ...n, message: msgBy.get(n.id) ?? null })),
     channels: channels.map(c => ({ id: c.id, label: c.label, kind: channelKind(c.url), host: new URL(c.url).host })),
     channelSecret: channels.length ? decPiiOpt(channelSecret) : null,
@@ -254,6 +285,14 @@ export async function updateSettings(userId: string, input: SettingsInput) {
     if (input.enabled) {
       const u = await owner(userId)
       if (!u.emailVerifiedAt) throw new UserError('Please confirm your email address before switching on.')
+      const c = await coverage(userId)
+      if (!c.ok) {
+        throw new UserError(c.confirmers < 1 && c.trusted < 1
+          ? 'Before switching on, you need at least one confirmer and one trusted person who have accepted their invitations (they can be the same person).'
+          : c.confirmers < 1
+            ? 'Before switching on, you need at least one confirmer who has accepted: someone we can ask whether you are OK.'
+            : 'Before switching on, you need a trusted person who has accepted: someone to receive your handover.')
+      }
       data.lastCheckinAt = new Date() // switching on starts the clock now
     }
     data.enabled = input.enabled
@@ -314,7 +353,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 export async function addNominee(userId: string, input: { name: string; email: string; role: string }) {
   const name = (input.name ?? '').trim().slice(0, 100)
   const email = (input.email ?? '').trim().toLowerCase()
-  const role = input.role === 'TRUSTED' ? 'TRUSTED' : input.role === 'CONFIRMER' ? 'CONFIRMER' : null
+  const role = input.role === 'TRUSTED' ? 'TRUSTED' : input.role === 'CONFIRMER' ? 'CONFIRMER' : input.role === 'BOTH' ? 'BOTH' : null
   if (!name) throw new UserError('Please give the contact a name.')
   if (!EMAIL_RE.test(email) || email.length > 190) throw new UserError('Please give a valid email address.')
   if (!role) throw new UserError('Choose whether this person confirms, or receives the handover.')
@@ -322,14 +361,22 @@ export async function addNominee(userId: string, input: { name: string; email: s
   if (!u.emailVerifiedAt) throw new UserError('Please confirm your own email address first.')
   const eh = emailHash(email)
   if (eh === emailHash(u.email)) throw new UserError('Your contacts must be other people.')
-  if ((await db.nominee.count({ where: { userId } })) >= LIMITS.maxNominees) throw new UserError(`You can have up to ${LIMITS.maxNominees} contacts.`)
-  if (await db.nominee.findFirst({ where: { userId, emailHash: eh, role } })) throw new UserError('That person is already on your list for that role.')
+  const roles = role === 'BOTH' ? (['CONFIRMER', 'TRUSTED'] as const) : ([role] as const)
+  if ((await db.nominee.count({ where: { userId } })) + roles.length > LIMITS.maxNominees) throw new UserError(`You can have up to ${LIMITS.maxNominees} contacts.`)
+  if (await db.nominee.findFirst({ where: { userId, emailHash: eh, role: { in: [...roles] } } })) throw new UserError('That person is already on your list for that role.')
 
   const { token, hash } = newToken()
-  const n = await db.nominee.create({ data: { userId, nameEnc: encPii(name), emailEnc: encPii(email), emailHash: eh, role, inviteTokenHash: hash, invitedAt: new Date() } })
+  const now = new Date()
+  // For "both", one invitation (the handover one, which sets up their passphrase) answers both roles:
+  // the confirmer row has no link of its own and follows the handover row's answer.
+  if (role === 'BOTH') {
+    await db.nominee.create({ data: { userId, nameEnc: encPii(name), emailEnc: encPii(email), emailHash: eh, role: 'CONFIRMER', invitedAt: now } })
+  }
+  const n = await db.nominee.create({ data: { userId, nameEnc: encPii(name), emailEnc: encPii(email), emailHash: eh, role: role === 'BOTH' ? 'TRUSTED' : role, inviteTokenHash: hash, invitedAt: now } })
   await send(userId, email, Emails.invite(u.name, name, role, `${appUrl()}/n/invite?t=${token}`), 'invite')
-  await logEvent(userId, 'NOMINEE_INVITED', `${name} (${role === 'TRUSTED' ? 'handover' : 'confirmer'})`)
-  await securityNotice(userId, `${name} (${email}) was invited as ${role === 'TRUSTED' ? 'the person who receives your handover' : 'a confirmer'}.`)
+  const label = role === 'BOTH' ? 'confirmer and handover' : role === 'TRUSTED' ? 'handover' : 'confirmer'
+  await logEvent(userId, 'NOMINEE_INVITED', `${name} (${label})`)
+  await securityNotice(userId, `${name} (${email}) was invited as ${role === 'BOTH' ? 'a confirmer and the person who receives your handover' : role === 'TRUSTED' ? 'the person who receives your handover' : 'a confirmer'}.`)
   return n.id
 }
 
@@ -357,6 +404,7 @@ export async function removeNominee(userId: string, nomineeId: string) {
   await db.nominee.delete({ where: { id: row.id } })
   await logEvent(userId, 'NOMINEE_REMOVED', decPii(row.nameEnc))
   await securityNotice(userId, `${decPii(row.nameEnc)} was removed from your contacts.`)
+  await warnIfUncovered(userId)
 }
 
 async function findInvite(token: string) {
@@ -370,7 +418,9 @@ export async function lookupInvite(token: string) {
   if (!row) return { valid: false as const, reason: 'This invitation link is not valid or has expired.' }
   const n = decNominee(row)
   const u = await owner(row.userId)
-  return { valid: true as const, ownerName: u.name, nomineeName: n.name, role: n.role, status: n.status, needsKey: n.role === 'TRUSTED' && !n.hasKey }
+  const alsoConfirmer = n.role === 'TRUSTED' && n.status !== 'ACCEPTED'
+    && !!(await db.nominee.findFirst({ where: { userId: row.userId, emailHash: row.emailHash, role: 'CONFIRMER', status: 'PENDING', inviteTokenHash: null } }))
+  return { valid: true as const, ownerName: u.name, nomineeName: n.name, role: n.role, status: n.status, needsKey: n.role === 'TRUSTED' && !n.hasKey, alsoConfirmer }
 }
 
 export async function answerInvite(token: string, accept: boolean, keys?: { publicKey?: string; encPrivateKey?: string; hint?: string }) {
@@ -395,8 +445,16 @@ export async function answerInvite(token: string, accept: boolean, keys?: { publ
   Object.assign(data, { status: accept ? 'ACCEPTED' : 'DECLINED', acceptedAt: accept ? (row.acceptedAt ?? new Date()) : null })
   if (!accept) Object.assign(data, { publicKey: null, encPrivateKey: null, keyHintEnc: null, keyCreatedAt: null })
   await db.nominee.update({ where: { id: row.id }, data })
+  if (row.role === 'TRUSTED' && !wasAccepted) {
+    // Invited as both: the linked confirmer row (no link of its own) takes the same answer.
+    await db.nominee.updateMany({
+      where: { userId: row.userId, emailHash: row.emailHash, role: 'CONFIRMER', status: 'PENDING', inviteTokenHash: null },
+      data: { status: accept ? 'ACCEPTED' : 'DECLINED', acceptedAt: accept ? new Date() : null },
+    })
+  }
   await logEvent(row.userId, accept ? (wasAccepted ? 'NOMINEE_KEY_SET' : 'NOMINEE_ACCEPTED') : 'NOMINEE_DECLINED', n.name)
   if (!wasAccepted) await send(row.userId, u.email, Emails.inviteAnsweredOwner(n.name, accept), 'invite answered')
+  if (!accept && wasAccepted) await warnIfUncovered(row.userId)
   return {
     ok: true,
     message: accept
@@ -582,6 +640,8 @@ async function maybeStartHold(userId: string, reason: HoldReason) {
 
 export async function tickUser(userId: string, now = new Date()) {
   const s = await getSwitch(userId)
+  // A switch that is on but has nobody to ask or hand over to: remind the owner weekly.
+  if (s.enabled && s.stage !== 'HANDOVER_SENT') await warnIfUncovered(userId, 7 * DAY).catch(e => console.error('[busfactor] coverage warning failed', e))
   const required = s.stage === 'NOMINEES_ALERTED' ? await effectiveRequired(userId, s.requiredConfirmations) : s.requiredConfirmations
   const action = decide({
     now,
@@ -620,7 +680,10 @@ export async function tickUser(userId: string, now = new Date()) {
       const confirmers = await acceptedNominees(userId, 'CONFIRMER')
       if (confirmers.length === 0) {
         const recent = await db.event.findFirst({ where: { userId, type: 'NO_NOMINEES', createdAt: { gt: new Date(now.getTime() - DAY) } } })
-        if (!recent) await logEvent(userId, 'NO_NOMINEES', 'Contacts should be asked now, but nobody has accepted an invitation')
+        if (!recent) {
+          await logEvent(userId, 'NO_NOMINEES', 'Contacts should be asked now, but nobody has accepted an invitation')
+          await warnIfUncovered(userId, DAY)
+        }
         break
       }
       const cycleId = `c_${now.getTime()}_${randomBytes(4).toString('hex')}`

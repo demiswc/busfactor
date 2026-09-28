@@ -16,6 +16,7 @@ export interface Status {
     instructionsMode: 'NONE' | 'SERVER' | 'SEALED'; sealedHint: string | null
   }
   hasInstructions: boolean
+  coverage: { confirmers: number; trusted: number; ok: boolean; missing: string[] }
   serverInstructionsAllowed: boolean
   channels: Array<{ id: string; label: string; kind: string; host: string }>
   channelSecret: string | null
@@ -121,6 +122,14 @@ export function Contacts({ st, reload }: { st: Status; reload: () => void }) {
     setMsg(r.ok ? { tone: 'ok', text: ok } : { tone: 'error', text: r.error ?? 'Failed.' })
     reload()
   }
+  async function alsoHandover(n: Status['nominees'][number]) {
+    setBusy(true); setMsg(null)
+    const r = await api('/api/me/nominees', 'POST', { name: n.name, email: n.email, role: 'TRUSTED' })
+    setBusy(false)
+    setMsg(r.ok ? { tone: 'ok', text: `Asked ${n.name} to also receive your handover. They will get an email to accept and choose a passphrase.` } : { tone: 'error', text: r.error ?? 'Could not add.' })
+    reload()
+  }
+  const hasTrustedRow = (email: string) => st.nominees.some(x => x.role === 'TRUSTED' && x.email === email)
   const badge = (s: string) => s === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
     : s === 'DECLINED' ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
 
@@ -129,7 +138,8 @@ export function Contacts({ st, reload }: { st: Status; reload: () => void }) {
       <H2>Your people</H2>
       <Muted className="mb-4">
         <strong>Confirmers</strong> are asked “is {st.user.name} OK?” if you stop checking in. Two is ideal: partner, sibling, close friend.
-        Your <strong>trusted person</strong> receives the handover link. Everyone must accept an invitation before they count.
+        Your <strong>trusted person</strong> receives the handover link and any personal message. One person can be both.
+        Everyone must accept an invitation before they count.
       </Muted>
       {st.nominees.length > 0 && (
         <ul className="mb-5 divide-y divide-black/5 dark:divide-white/10">
@@ -145,6 +155,7 @@ export function Contacts({ st, reload }: { st: Status; reload: () => void }) {
               </div>
               <div className="flex gap-3">
                 {n.status !== 'ACCEPTED' && <button className="text-brand hover:underline" onClick={() => act('/api/me/nominees/resend', n.id, 'Invitation sent again.')}>Resend</button>}
+                {n.role === 'CONFIRMER' && n.status !== 'DECLINED' && !hasTrustedRow(n.email) && <button className="text-brand hover:underline disabled:opacity-50" disabled={busy} onClick={() => alsoHandover(n)}>Also receives handover</button>}
                 {n.status === 'ACCEPTED' && n.role === 'TRUSTED' && !n.hasKey && <button className="text-brand hover:underline" onClick={() => act('/api/me/nominees/resend', n.id, 'Asked them to set up their passphrase.')}>Ask to set a passphrase</button>}
                 <button className="text-red-600 hover:underline" onClick={() => confirm(`Remove ${n.name}?`) && act('/api/me/nominees/remove', n.id, 'Removed.')}>Remove</button>
               </div>
@@ -159,6 +170,7 @@ export function Contacts({ st, reload }: { st: Status; reload: () => void }) {
           <select value={f.role} onChange={e => setF({ ...f, role: e.target.value })} className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm dark:border-white/15 dark:bg-black/20">
             <option value="CONFIRMER">Confirmer</option>
             <option value="TRUSTED">Receives handover</option>
+            <option value="BOTH">Both</option>
           </select>
         </Field>
         <Button disabled={busy || !st.user.verified}>Invite</Button>

@@ -17,7 +17,9 @@ export default async function InvitePage({ searchParams }: { searchParams: Promi
             <p>
               {inv.ownerName} checks in with us every few weeks. If they ever stop,{' '}
               {inv.role === 'TRUSTED'
-                ? <>you would receive a private link to the instructions they have left: what to do, who to call, where things are.</>
+                ? inv.alsoConfirmer
+                  ? <>we would first email you to ask whether they are OK, and if they cannot be reached you would receive a private link to the instructions they have left: what to do, who to call, where things are.</>
+                  : <>you would receive a private link to the instructions they have left: what to do, who to call, where things are.</>
                 : <>we would email you to ask whether they are OK. You would try to reach them, then press one of two buttons.</>}
             </p>
             <Muted>You would only ever hear from us if {inv.ownerName} stops checking in. No account needed. You can ask to be removed at any time by telling {inv.ownerName}.</Muted>
