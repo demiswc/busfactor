@@ -81,7 +81,7 @@ async function pending(isCodeGuess = true) {
     const first = await db.authChallenge.updateMany({ where: { id: p.id, attempts: MAX_2FA_ATTEMPTS }, data: { attempts: MAX_2FA_ATTEMPTS + 1 } })
     if (first.count === 1) {
       const u = await db.user.findUniqueOrThrow({ where: { id: p.userId } })
-      await sendMail({ to: decPii(u.emailEnc), ...Emails.secondFactorFailures(decPii(u.nameEnc), `${appUrl()}/login?next=/settings`) })
+      await sendMail({ to: decPii(u.emailEnc), ...Emails.secondFactorFailures(decPii(u.nameEnc), `${appUrl()}/login?next=/dashboard?s=account`) })
       await logEvent(u.id, 'SECOND_FACTOR_FAILURES')
     }
     throw new UserError('Too many attempts. Please log in again.')

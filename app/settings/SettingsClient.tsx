@@ -10,7 +10,7 @@ export interface Nominee { id: string; name: string; email: string; role: 'CONFI
 export interface Status {
   user: { name: string; email: string; verified: boolean }
   settings: {
-    enabled: boolean; stage: string; pausedUntil: string | null
+    enabled: boolean; stage: string; pausedUntil: string | null; lastCheckinAt: string | null; holdEndsAt: string | null
     reminder1AfterDays: number; reminder2AfterDays: number; nomineeAlertAfterDays: number
     requiredConfirmations: number; nomineeReminderHours: number; nomineeFinalHours: number; holdHours: number
     instructionsMode: 'NONE' | 'SERVER' | 'SEALED'; sealedHint: string | null
@@ -23,6 +23,13 @@ export interface Status {
   apiTokens: Array<{ id: string; name: string; createdAt: string; lastUsedAt: string | null }>
   nominees: Nominee[]
   confirmedUntil: string | null
+  // also returned by /api/me, used by the dashboard
+  paused: boolean
+  daysSinceCheckin: number
+  notOkCount: number
+  scheduler: { lastTickAt: string | null; healthy: boolean }
+  schedule: { reminder1At: string; reminder2At: string; nomineeAlertAt: string; nomineeReminderAt: string | null; goAheadAt: string | null }
+  events: Array<{ id: string; type: string; detail: string | null; createdAt: string }>
 }
 type Msg = { tone: 'ok' | 'error'; text: string } | null
 
@@ -69,7 +76,7 @@ export default function SettingsClient() {
 
 // ---------------------------------------------------------------- password confirmation
 
-function ReauthBar({ until, reload }: { until: string | null; reload: () => void }) {
+export function ReauthBar({ until, reload }: { until: string | null; reload: () => void }) {
   const [pw, setPw] = useState('')
   const [err, setErr] = useState('')
   const [now, setNow] = useState(() => Date.now())
@@ -97,7 +104,7 @@ function ReauthBar({ until, reload }: { until: string | null; reload: () => void
 
 // ---------------------------------------------------------------- contacts
 
-function Contacts({ st, reload }: { st: Status; reload: () => void }) {
+export function Contacts({ st, reload }: { st: Status; reload: () => void }) {
   const [f, setF] = useState({ name: '', email: '', role: 'CONFIRMER' })
   const [msg, setMsg] = useState<Msg>(null)
   const [busy, setBusy] = useState(false)
@@ -163,7 +170,7 @@ function Contacts({ st, reload }: { st: Status; reload: () => void }) {
 
 // ---------------------------------------------------------------- instructions
 
-function Instructions({ st, reload }: { st: Status; reload: () => void }) {
+export function Instructions({ st, reload }: { st: Status; reload: () => void }) {
   const [mode, setMode] = useState<'SEALED' | 'SERVER' | 'NONE'>(st.settings.instructionsMode === 'NONE' ? 'SEALED' : st.settings.instructionsMode)
   const [text, setText] = useState('')
   const [pass, setPass] = useState('')
@@ -247,7 +254,7 @@ function Instructions({ st, reload }: { st: Status; reload: () => void }) {
 
 // ---------------------------------------------------------------- timers
 
-function Timers({ st, reload }: { st: Status; reload: () => void }) {
+export function Timers({ st, reload }: { st: Status; reload: () => void }) {
   const s = st.settings
   const [f, setF] = useState({
     enabled: s.enabled, reminder1AfterDays: s.reminder1AfterDays, reminder2AfterDays: s.reminder2AfterDays, nomineeAlertAfterDays: s.nomineeAlertAfterDays,
@@ -296,7 +303,7 @@ function Timers({ st, reload }: { st: Status; reload: () => void }) {
 
 // ---------------------------------------------------------------- test emails & account
 
-function TestEmails() {
+export function TestEmails() {
   const [msg, setMsg] = useState<Msg>(null)
   const [busy, setBusy] = useState(false)
   async function go() {
@@ -316,7 +323,7 @@ function TestEmails() {
   )
 }
 
-function Account() {
+export function Account() {
   const [pw, setPw] = useState({ current: '', next: '' })
   const [del, setDel] = useState('')
   const [msg, setMsg] = useState<Msg>(null)
