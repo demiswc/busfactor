@@ -8,6 +8,7 @@ import { createSession, hashPassword, rateLimit, recordHit, removeHits, setPendi
 import { UserError } from './errors'
 import { logEvent } from './engine/service'
 import { secondFactorsFor } from './twofactor'
+import { bump } from './metrics'
 
 const HOUR = 60 * 60 * 1000
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
@@ -142,4 +143,5 @@ export async function requirePassword(userId: string, password: string) {
 export async function deleteAccount(userId: string, password: string) {
   await requirePassword(userId, password)
   await db.user.delete({ where: { id: userId } })
+  await bump('account_deleted')
 }

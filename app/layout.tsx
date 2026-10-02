@@ -4,6 +4,7 @@ import './globals.css'
 import { getCurrentUser } from '@/lib/auth'
 import { LogoutButton } from '@/components/LogoutButton'
 import { appUrl } from '@/lib/config'
+import { ReportVitals } from '@/components/ReportVitals'
 
 const TITLE = "busfactor: a dead man's switch for solo developers"
 const DESCRIPTION = "Check in every few weeks. If you go quiet, the people you trust are asked if you're OK and your handover reaches the right person. Free and open source."
@@ -26,6 +27,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <body className="min-h-screen">
+        <ReportVitals />
         <header className="border-b border-black/10 dark:border-white/10">
           <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
             <Link href={user ? '/dashboard' : '/'} className="flex items-center gap-2 font-semibold tracking-tight">

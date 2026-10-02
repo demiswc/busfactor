@@ -4,6 +4,7 @@
  */
 import { APP_NAME, appUrl } from './config'
 import type { HoldReason } from './engine/stages'
+import type { Stats } from './metrics'
 
 export const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
@@ -192,6 +193,23 @@ export const Emails = {
         <ul>${missing.map(m => `<li>${esc(m)}</li>`).join('')}</ul>
         <p>Invite someone new (or ask them to accept their invitation) and this will sort itself out.</p>
         ${button(url, 'Choose your people', RED)}`, RED),
+    }
+  },
+  weeklyStats(st: Stats, url: string) {
+    const row = (k: string, v: string | number | null) => `<tr><td style="padding:4px 12px 4px 0;color:#6b7280">${esc(k)}</td><td style="padding:4px 0;font-weight:bold">${esc(String(v ?? '—'))}</td></tr>`
+    const lcp = st.performance.perf.find(p => p.metric === 'LCP')
+    return {
+      subject: `${APP_NAME} this week: ${st.users.total} users, ${st.users.new7d} new, ${st.email.sent7d} emails`,
+      html: wrap('Your weekly stats', `<p>Counts only: no names or addresses are included.</p>
+        <table style="border-collapse:collapse;font-size:14px">
+        ${row('Users', st.users.total)}${row('New this week', st.users.new7d)}${row('Logged in this week', st.users.loggedIn7d)}
+        ${row('Switches on', st.switches.on)}${row('Checked in (30 days)', st.users.checkedIn30d)}
+        ${row('Emails sent this week', st.email.sent7d)}${row('Emails failed this week', st.email.failed7d)}
+        ${row('Contacts asked (30 days)', st.escalations30d.contactsAsked)}${row('Handovers sent (30 days)', st.escalations30d.handoversSent)}
+        ${row('Page load (LCP, 75th percentile)', lcp?.p75 != null ? `${(lcp.p75 / 1000).toFixed(1)} s` : 'no data yet')}
+        ${row('Scheduler', st.server.schedulerHealthy ? 'running' : 'NOT RUNNING')}
+        </table>
+        ${button(url, 'Open the stats page')}`),
     }
   },
   pushDeviceGone(name: string, device: string, url: string) {

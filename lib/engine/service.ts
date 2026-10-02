@@ -18,6 +18,7 @@ import { sendMail } from '../mail'
 import { isPublicKeyJwk, isRecipientBox, isSealedBox, keyFingerprint } from '../sealed'
 import { sendToChannel, validateChannelUrl, channelKind, type AlertEvent, type Channel } from '../channels'
 import { recordTick, schedulerHealthy } from '../system'
+import { bump, collectStats, dayKey, pruneMetrics } from '../metrics'
 import { findPushDevice, listPushDevices, pushToUser, savePushDevice, vapidKeys, type PushMessage } from '../push'
 import { UserError } from '../errors'
 import { rateLimit } from '../auth'
@@ -36,7 +37,14 @@ const loginUrl = () => `${appUrl()}/login?next=/dashboard`
 
 // ---------------------------------------------------------------- helpers
 
+/** Events that are also counted (numbers only) for the operator's stats page. */
+const COUNTED: Record<string, string> = {
+  ACCOUNT_CREATED: 'signup', LOGIN: 'login', CHECK_IN: 'checkin', REMINDER_1_SENT: 'reminder_sent', REMINDER_2_SENT: 'reminder_sent',
+  NOMINEES_ALERTED: 'contacts_asked', HOLD_STARTED: 'hold_started', HANDOVER_SENT: 'handover_sent',
+}
+
 export async function logEvent(userId: string, type: string, detail?: string) {
+  if (COUNTED[type]) await bump(COUNTED[type])
   try {
     await db.event.create({ data: { userId, type, detailEnc: encPiiOpt(detail) } })
   } catch (e) {
@@ -819,6 +827,7 @@ export async function tickUser(userId: string, now = new Date()) {
 
 /** Run by cron every few minutes (POST /api/cron/tick). Safe to run as often as you like. */
 export async function tickAll(now = new Date()) {
+  const started = Date.now()
   const rows = await db.switch.findMany({ where: { enabled: true, stage: { not: 'HANDOVER_SENT' } }, select: { userId: true } })
   const results: Record<string, number> = {}
   for (const { userId } of rows) {
@@ -833,8 +842,31 @@ export async function tickAll(now = new Date()) {
   // Housekeeping: expired single-use tokens and challenges.
   await db.authToken.deleteMany({ where: { expiresAt: { lt: new Date(now.getTime() - DAY) } } }).catch(() => {})
   await db.authChallenge.deleteMany({ where: { expiresAt: { lt: now } } }).catch(() => {})
+  await pruneMetrics(now)
   await recordTick(now)
+  await bump('tick_runs'); await bump('tick_ms', Date.now() - started)
+  await maybeSendWeeklyStats(now).catch(e => console.error('[busfactor] weekly stats failed', e))
   return { checked: rows.length, results }
+}
+
+// ---------------------------------------------------------------- weekly stats for the operator
+
+/**
+ * Every Monday morning (UTC) the addresses in OPERATOR_ADMIN_EMAILS get a short summary: counts only.
+ * Set OPERATOR_STATS_EMAIL=off to stop it.
+ */
+async function maybeSendWeeklyStats(now: Date) {
+  const to = (process.env.OPERATOR_ADMIN_EMAILS || '').split(',').map(x => x.trim()).filter(Boolean)
+  if (!to.length || process.env.OPERATOR_STATS_EMAIL === 'off') return
+  if (now.getUTCDay() !== 1 || now.getUTCHours() < 7) return
+  const week = dayKey(now)
+  const claimed = await db.systemState.upsert({ where: { key: 'stats_email_week' }, update: {}, create: { key: 'stats_email_week', value: '' } })
+  if (claimed.value === week) return
+  // Claim the week first (guarded), so two overlapping ticks cannot both send.
+  const upd = await db.systemState.updateMany({ where: { key: 'stats_email_week', value: claimed.value }, data: { value: week } })
+  if (upd.count !== 1) return
+  const stats = await collectStats(now)
+  for (const addr of to) await sendMail({ to: addr, ...Emails.weeklyStats(stats, `${appUrl()}/stats`) })
 }
 
 // ---------------------------------------------------------------- test mode

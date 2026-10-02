@@ -20,6 +20,7 @@ export default function Privacy() {
           and declined contacts are never contacted again unless you invite them again.</p>
         <p><strong>Why.</strong> We process this data to provide the service you asked for (contract), and your contacts&apos; details on the basis
           of legitimate interests, with their consent obtained through the invitation.</p>
+        <p><strong>Usage statistics.</strong> We count things like sign-ups, check-ins and emails sent, and your browser reports how long pages took to load. These are stored as plain numbers with no name, email, account or IP address attached, and load times are deleted after 30 days. No third-party analytics or tracking is used.</p>
         <p><strong>Retention.</strong> Deleting your account removes all of this immediately. Server logs are kept for up to 30 days.</p>
         <p><strong>Sharing.</strong> We do not sell data or use it for advertising. Emails are sent through our mail provider.</p>
         <p><strong>Your rights.</strong> You can access, correct or delete your data at any time from Settings, or by contacting us.</p>

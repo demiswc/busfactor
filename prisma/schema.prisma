@@ -267,3 +267,27 @@ model Event {
   @@index([userId, createdAt])
   @@map("events")
 }
+
+/// Daily counters for the operator's stats page (emails sent, sign-ups, check-ins…). Numbers only: no user ids.
+model Metric {
+  id    String @id @default(cuid())
+  day   String @db.VarChar(10) // YYYY-MM-DD (UTC)
+  key   String @db.VarChar(64)
+  count Int    @default(0)
+
+  @@unique([day, key])
+  @@map("metrics")
+}
+
+/// Page-load timings reported by visitors' browsers (Web Vitals). No user id, no IP; kept 30 days.
+model PerfSample {
+  id        String   @id @default(cuid())
+  day       String   @db.VarChar(10)
+  metric    String   @db.VarChar(8) // TTFB | FCP | LCP | INP | CLS
+  page      String   @db.VarChar(32)
+  value     Int // milliseconds (CLS × 1000)
+  createdAt DateTime @default(now())
+
+  @@index([day, metric])
+  @@map("perf_samples")
+}

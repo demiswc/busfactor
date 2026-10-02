@@ -142,3 +142,23 @@ test('devices belong to one account; removing one tells the owner', async () => 
   assert.equal(await db.pushDevice.count({ where: { userId: uid } }), 0)
   assert.ok(outbox.some(m => /no longer receive your check-in reminders/.test(m.html)))
 })
+
+test('stats: counts only, and only for the operator', async () => {
+  const { collectStats, isOperatorAdmin, recordPerf, bump } = await import('../lib/metrics')
+  await bump('email_sent', 3); await bump('email_sent'); await bump('email_failed')
+  for (const v of [900, 1200, 1500, 4000]) await recordPerf('LCP', v, '/dashboard?s=people')
+  await recordPerf('LCP', 'nonsense', '/'); await recordPerf('EVIL', 10, '/')
+  const st = await collectStats()
+  assert.ok(st.email.sent24h >= 4); assert.ok(st.email.failed7d >= 1)
+  const lcp = st.performance.perf.find(p => p.metric === 'LCP')!
+  assert.equal(lcp.samples, 4); assert.equal(lcp.p50, 1500)
+  assert.deepEqual(st.performance.lcpByPage.map(p => p.page), ['/dashboard'], 'query strings are never stored')
+  assert.ok(st.users.total >= 1)
+  const json = JSON.stringify(st)
+  assert.ok(!json.includes(OWNER) && !json.includes('@example.com'), 'no email addresses in the stats')
+  process.env.OPERATOR_ADMIN_EMAILS = ' Boss@Example.com , other@example.com'
+  assert.equal(isOperatorAdmin({ email: 'boss@example.com' }), true)
+  assert.equal(isOperatorAdmin({ email: OWNER }), false)
+  delete process.env.OPERATOR_ADMIN_EMAILS
+  assert.equal(isOperatorAdmin({ email: 'boss@example.com' }), false, 'nobody when unset')
+})

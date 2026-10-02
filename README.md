@@ -152,6 +152,15 @@ Then call the scheduler every 5 minutes, e.g. from cron: `curl -fsS -X POST -H "
 | `OPERATOR_NAME`, `OPERATOR_EMAIL` | no | Shown on the privacy page. |
 | `DB_PASSWORD`, `DOMAIN` | Docker only | Database password and domain for Caddy. |
 
+### Usage stats for operators
+
+Set `OPERATOR_ADMIN_EMAILS` to your own account's email. That account (once it has a second login step) can open **`/stats`**: users, sign-ups, logins, check-ins, switches by stage, emails sent and failed, phone notifications, page load times measured in visitors' browsers, and scheduler and database health. Everyone else gets a 404. It is counts and timings only: no names, emails or IP addresses are stored for it. The same people get a short summary email every Monday (`OPERATOR_STATS_EMAIL=off` to stop it), and on the server:
+
+```bash
+npm run stats          # plain text
+npm run stats -- --json
+```
+
 ### The CLI
 
 ```bash

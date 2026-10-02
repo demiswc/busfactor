@@ -11,6 +11,7 @@ import { db } from './db'
 import { appUrl } from './config'
 import { decPii, encPii, lookupHash } from './crypto'
 import { UserError } from './errors'
+import { bump } from './metrics'
 
 const VAPID_KEY = 'vapid'
 export const MAX_PUSH_DEVICES = 10
@@ -100,6 +101,8 @@ export async function pushToUser(userId: string, msg: PushMessage): Promise<Push
       await db.pushDevice.update({ where: { id: d.id }, data: { lastFailAt: new Date(), failures: { increment: 1 } } })
     }
   }))
+  await bump('push_sent', out.delivered)
+  await bump('push_failed', out.failed)
   return out
 }
 

@@ -1,4 +1,5 @@
 import nodemailer, { type Transporter } from 'nodemailer'
+import { bump } from './metrics'
 
 /**
  * Outgoing email via SMTP (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS or SMTP_PASS_B64, SMTP_FROM).
@@ -52,4 +53,8 @@ let sender: MailSender = smtpSender
 /** Tests swap the sender for an in-memory outbox. */
 export function setMailSender(s: MailSender | null) { sender = s ?? smtpSender }
 
-export function sendMail(m: Mail) { return sender(m) }
+export async function sendMail(m: Mail) {
+  const r = await sender(m)
+  await bump(r.ok ? 'email_sent' : 'email_failed')
+  return r
+}
