@@ -14,6 +14,9 @@ staying on the server, and on the design making a break-in yield as little as po
 - [ ] Monitor `https://your-domain/api/health` (returns 503 if the database or scheduler is unhealthy).
 - [ ] `ALLOW_PRIVATE_WEBHOOKS` unset.
 - [ ] SMTP with SPF, DKIM and DMARC set up for the sending domain, or reminders will land in spam.
+- [ ] `OPERATOR_ADMIN_EMAILS` set to a dedicated account (e.g. `security@your-domain`) with a passkey or authenticator app,
+      so you can see usage at `/stats` and get the Monday summary. Watch for: *Emails failed* above zero, the scheduler
+      *Not running*, switches sitting in *Safety wait* or *Handover sent*, and page load (LCP p75) over 2.5 s.
 
 ## Secrets
 
@@ -40,4 +43,5 @@ staying on the server, and on the design making a break-in yield as little as po
 | A database dump or backup only | Scrambled data. Names, emails, contacts, channel URLs and events are encrypted; sealed instructions and personal messages need passphrases the server never had. |
 | The server with its `.env` | Names and email addresses of users and contacts, and who is at which stage. **Still not** sealed instructions or personal messages already stored. But someone in full control of the server could change the site's code to capture passphrases typed *afterwards*, which is why the server itself must be protected like the crown jewels, and why key fingerprints let owners and trusted people check that a key has not been swapped. |
 | A user's logged-in browser | Their dashboard. Weakening changes need the password re-entered, and the owner is emailed about each one. |
+| The operator's stats account | Counts and timings: how many users, emails, check-ins, and how fast pages load. **No** names, emails, user ids or IP addresses are stored for statistics, so there is nobody to identify. |
 | A user's password | Blocked by their second factor, if they set one up; the owner is emailed after repeated second-step failures. |

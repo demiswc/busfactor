@@ -102,6 +102,7 @@ if [ "$USE_DOCKER" = 1 ]; then
   ask_secret SMTP_PASS "SMTP password (hidden)"
   ask SMTP_FROM "From address" "busfactor <no-reply@${DOMAIN}>"
   ask OPERATOR_EMAIL "Contact email shown on the privacy page" "${SMTP_USER:-}"
+  ask OPERATOR_ADMIN_EMAILS "Your busfactor account email, to see usage stats at /stats (blank to skip)" ""
   if [ -f .env ]; then
     warn "Keeping existing $(pwd)/.env (secrets unchanged)"
   else
@@ -121,6 +122,7 @@ SMTP_FROM="${SMTP_FROM//\"/\\\"}"
 DEFAULT_TIMEZONE=${DEFAULT_TIMEZONE:-Europe/London}
 OPERATOR_NAME=${OPERATOR_NAME:-}
 OPERATOR_EMAIL=${OPERATOR_EMAIL:-}
+OPERATOR_ADMIN_EMAILS=${OPERATOR_ADMIN_EMAILS:-}
 ALLOW_SERVER_INSTRUCTIONS=${ALLOW_SERVER_INSTRUCTIONS:-true}
 PORT=${PORT}
 ENV
@@ -172,6 +174,7 @@ ask SMTP_USER "SMTP username" ""
 ask_secret SMTP_PASS "SMTP password (hidden)"
 ask SMTP_FROM "From address" "busfactor <no-reply@${DOMAIN}>"
 ask OPERATOR_EMAIL "Contact email shown on the privacy page" "${SMTP_USER:-}"
+ask OPERATOR_ADMIN_EMAILS "Your busfactor account email, to see usage stats at /stats (blank to skip)" ""
 [ -n "$SMTP_HOST" ] || warn "No SMTP host given: the site will not be able to send email until you set SMTP_* in $APP_DIR/.env"
 
 # ------------------------------------------------------------------ packages
@@ -246,6 +249,7 @@ SMTP_FROM="${SMTP_FROM//\"/\\\"}"
 DEFAULT_TIMEZONE=${DEFAULT_TIMEZONE:-Europe/London}
 OPERATOR_NAME=${OPERATOR_NAME:-}
 OPERATOR_EMAIL=${OPERATOR_EMAIL:-}
+OPERATOR_ADMIN_EMAILS=${OPERATOR_ADMIN_EMAILS:-}
 ALLOW_SERVER_INSTRUCTIONS=${ALLOW_SERVER_INSTRUCTIONS:-true}
 PORT=${PORT}
 NODE_ENV=production

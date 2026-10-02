@@ -34,6 +34,7 @@ Free and open source (MIT). Hosted at **[busfactor.co.uk](https://busfactor.co.u
 | **Phone reminders, no app** | Reminders arrive as a notification on your phone instead of an email: tap it, confirm with Face ID or your fingerprint (passkey), done. Works in the browser on Android, and on iPhone (iOS 16.4+) once busfactor is added to the home screen. The second reminder always goes by email too, and a phone that stops receiving is removed and reported, so a silent failure cannot hide a missed check-in. |
 | **Check in anywhere** | Phone notification, dashboard, one-click button in reminder emails, `curl`/CLI with a personal token. Only a deliberate action counts: logging in or adding a device never resets the timer. |
 | **Pause** | Holiday or hospital stay: pause for up to 90 days. |
+| **Operator stats** | A private `/stats` page, a Monday summary email and `npm run stats`: users, activity, email volume, page load times and server health. Counts and timings only, so even the operator can't see who uses it. |
 | **Private by design** | Names, emails and contact details are encrypted at rest; a stolen database dump shows only scrambled data. |
 
 ## How the escalation works
@@ -150,16 +151,40 @@ Then call the scheduler every 5 minutes, e.g. from cron: `curl -fsS -X POST -H "
 | `SMTP_TLS_SERVERNAME` | no | Certificate name to check when `SMTP_HOST` is an IP address. |
 | `DEFAULT_TIMEZONE` | no | For dates in emails. Default `Europe/London`. |
 | `OPERATOR_NAME`, `OPERATOR_EMAIL` | no | Shown on the privacy page. |
+| `OPERATOR_ADMIN_EMAILS` | no | Comma-separated account emails that may open `/stats` and receive the weekly stats email. Unset = nobody. See [Usage stats](#usage-stats-for-operators). |
+| `OPERATOR_STATS_EMAIL` | no | `off` keeps the stats page but stops the Monday email. |
 | `DB_PASSWORD`, `DOMAIN` | Docker only | Database password and domain for Caddy. |
 
 ### Usage stats for operators
 
-Set `OPERATOR_ADMIN_EMAILS` to your own account's email. That account (once it has a second login step) can open **`/stats`**: users, sign-ups, logins, check-ins, switches by stage, emails sent and failed, phone notifications, page load times measured in visitors' browsers, and scheduler and database health. Everyone else gets a 404. It is counts and timings only: no names, emails or IP addresses are stored for it. The same people get a short summary email every Monday (`OPERATOR_STATS_EMAIL=off` to stop it), and on the server:
+busfactor has no admin panel that can see users. Instead, the operator gets **anonymous statistics**: how many people use the site, what it is doing and how fast it is, but never *who*.
 
-```bash
-npm run stats          # plain text
-npm run stats -- --json
-```
+**What you get**
+
+| Where | What |
+|---|---|
+| **`/stats`** (in the browser) | People (users, sign-ups, logins, check-ins, second-step adoption, phone reminders, deletions), switches (on, paused, how many at each escalation stage, 30-day reminders / contacts asked / handovers), email (sent, failed, failure rate) and phone notifications, 30-day daily charts, page load times (TTFB, FCP, LCP, INP, CLS at p50 / p75 / p95, per page), and server health (scheduler, run time, database latency, memory, version). |
+| **Monday email** | The headline numbers, sent each Monday morning (UTC) to the same addresses, with a link to the page. |
+| **`npm run stats`** (on the server) | The same numbers in the terminal; `npm run stats -- --json` for scripts and monitoring. |
+
+**Setting it up**
+
+1. Add your account's email to `.env`, then restart the app:
+   ```bash
+   OPERATOR_ADMIN_EMAILS=security@example.com        # several: a@example.com,b@example.com
+   ```
+2. If no account uses that address yet, sign up with it at `/signup` and confirm the email. It doesn't need contacts or a switch: an account used only for the stats is the tidiest option.
+3. Turn on a second login step for that account (passkey, authenticator app or email codes). Until then `/stats` only asks you to add one.
+4. Open `https://your-domain/stats`. There is deliberately no link to it anywhere on the site.
+
+Upgrading from a version without stats needs the two new tables: `npx prisma db push` (the installers' update step runs it). Counting starts from that moment.
+
+**Privacy and security**
+
+- Only the listed accounts with a second login step can open `/stats`. Everyone else, logged in or not, gets an ordinary 404, so the page doesn't reveal it exists. It is also excluded from search engines.
+- Everything is a count or a timing. Daily counters are stored as `(day, name, number)`; page-load samples as `(day, measure, page, milliseconds)` with the page reduced to a fixed list of routes (no query strings or tokens). No user id, name, email or IP address is stored for statistics, so the page cannot expose a user even to someone who takes over the operator's account.
+- Load times are measured in visitors' browsers with the standard Web Vitals and sent to your own server (no third-party analytics), rate-limited per IP, and deleted after 30 days. Daily counters are kept for 400 days.
+- The privacy page tells users about this in one paragraph.
 
 ### The CLI
 
@@ -189,6 +214,7 @@ TEST_DATABASE_URL=mysql://user:pass@127.0.0.1:3306/busfactor_test npm test
 ```
 
 - `tests/stages.test.ts`: the escalation rules as pure functions
+- `tests/push.test.ts`: phone reminders (who gets what, email fallback, dead devices, the push-service allowlist) and the operator stats (counts only, operator-only access)
 - `tests/flow.test.ts`: every scenario through the database with a fake mailbox, including privacy (no readable personal data in the database), webhook signing and SSRF refusals
 - `tests/sealed.test.ts`: browser encryption and recipient keys
 - `tests/totp.test.ts`: RFC 6238 vectors and private-address detection
@@ -202,11 +228,14 @@ lib/sealed.ts          browser-side encryption (passphrase boxes, recipient keys
 lib/crypto.ts          server-side encryption at rest, token hashing
 lib/twofactor.ts       passkeys, TOTP, email codes, recovery codes
 lib/channels.ts        ntfy / Discord / Slack / Telegram / webhooks with the SSRF guard
+lib/push.ts            phone and browser notifications (Web Push, no app needed)
+lib/metrics.ts         anonymous operator stats: daily counters, page-load timings, /stats data
 lib/emails.ts          every email, in plain English
 app/                   Next.js pages and API routes;  proxy.ts sets the nonce CSP
 install.sh             self-host installer (systemd or --docker)
 docker-compose.yml     MariaDB + app + scheduler (+ Caddy)
 bin/busfactor          command-line check-in
+scripts/stats.ts       `npm run stats` on the server
 ```
 
 Stack: Next.js 16, React 19, Prisma 7 (pure-TypeScript client with the MariaDB driver adapter), Tailwind 4, nodemailer, @simplewebauthn, hash-wasm.
